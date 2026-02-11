@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>IT Support Dashboard</h2>
+
+        <div class="stats">
+            <div class="card">
+                <strong>Total</strong><br>{{ total }}
+            </div>
+            <div class="card">
+                <strong>Pending</strong><br>{{ pending }}
+            </div>
+            <div class="card">
+                <strong>Hardware</strong><br>{{ hardware }}
+            </div>
+            <div class="card">
+                <strong>Software</strong><br>{{ software }}
+            </div>
+            <div class="card">
+                <strong>Network</strong><br>{{ network }}
+            </div>
+        </div>
+
+        <br><hr><br>
+
+        <a href="/log_issue">Log New Issue</a> |
+        <a href="/view_issues">View Issues</a> |
+        <a href="/">Logout</a>
+    </div>
+</body>
+</html>

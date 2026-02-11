@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log Issue</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Log IT Issue</h2>
+
+        <form method="post">
+            <label>Issue Description</label>
+            <textarea name="description" required></textarea>
+
+            <label>Source</label>
+            <select name="source">
+                <option>WhatsApp</option>
+                <option>Phone Call</option>
+            </select>
+
+            <button type="submit">Submit Issue</button>
+        </form>
+
+        <br>
+        <a href="/dashboard">Back to Dashboard</a>
+    </div>
+</body>
+</html>
