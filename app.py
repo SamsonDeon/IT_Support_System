@@ -102,3 +102,26 @@ def view_issues():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
+
+def create_default_user():
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        password TEXT
+    )
+    """)
+
+    cursor.execute("SELECT * FROM users WHERE username='admin'")
+    if not cursor.fetchone():
+        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("admin", "admin123"))
+
+    conn.commit()
+    conn.close()
+
+create_default_user()
+
