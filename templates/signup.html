@@ -1,39 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sign Up - IT Support System</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Create User</title>
 </head>
-<body class="login-body">
-    <div class="navbar">
-    <div class="nav-left">
-        <strong>IT Enterprise Support</strong>
-    </div>
+<body>
 
-    <div class="nav-right">
-        Logged in as: {{ session['user'] }}
-        <a href="/dashboard">Dashboard</a>
-        <a href="/log_issue">Log Issue</a>
-        <a href="/view_issues">Issues</a>
-        <a href="/logout">Logout</a>
-    </div>
-</div>
+<h2>Create New User</h2>
 
+<form method="POST">
+    <input type="text" name="username" placeholder="Username" required><br><br>
 
-<div class="login-card">
-    <h2>Create Account</h2>
+    <input type="password" name="password" placeholder="Password" required><br><br>
 
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username" required>
-        <input type="password" name="password" placeholder="Password" required>
+    <select name="role" required>
+        <option value="Admin">Admin</option>
+        <option value="Technician">Technician</option>
+    </select><br><br>
 
-        <button type="submit">Create Account</button>
-    </form>
+    <button type="submit">Create User</button>
+</form>
 
-    <p>Already have an account?
-        <a href="/">Login</a>
-    </p>
-</div>
+<br>
+<a href="/dashboard">Back to Dashboard</a>
 
 </body>
 </html>

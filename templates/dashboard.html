@@ -18,6 +18,9 @@
         <a href="/view_issues">Issues</a>
         <a href="/logout">Logout</a>
     </div>
+        {% if session['role'] == 'Admin' %}
+        <a href="/signup">Create User</a>
+        {% endif %}
 </div>
 
 <div class="container">
