@@ -180,7 +180,6 @@ def delete_user(user_id):
     db.close()
 
     return redirect(url_for("manage_users"))
-log_action("Deleted User", target)
 
 
 
