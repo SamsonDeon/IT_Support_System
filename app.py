@@ -144,7 +144,6 @@ def log_issue():
     return render_template("log_issue.html")
 
 # ================= VIEW ISSUES =================
-check_sla_alerts()
 @app.route("/view_issues")
 def view_issues():
     if "user" not in session:
@@ -159,28 +158,33 @@ def view_issues():
     query = "SELECT * FROM issues WHERE 1=1"
     params = []
 
+    # 🔎 Search
     if search:
         query += " AND (title LIKE ? OR description LIKE ?)"
         params.extend([f"%{search}%", f"%{search}%"])
 
+    # 📅 Filters
     if filter_type == "today":
         query += " AND date(date_reported) = date('now')"
 
     elif filter_type == "week":
-        query += " AND strftime('%W', date_reported) = strftime('%W', 'now')"
+        query += " AND strftime('%Y-%W', date_reported) = strftime('%Y-%W', 'now')"
+
+    elif filter_type == "month":
+        query += " AND strftime('%Y-%m', date_reported) = strftime('%Y-%m', 'now')"
 
     elif filter_type == "open":
-        query += " AND status = 'Open'"
+        query += " AND status='Open'"
 
     query += " ORDER BY date_reported DESC"
 
     cur.execute(query, params)
     issues = cur.fetchall()
 
-    # Convert to list for editing SLA
+    # Convert to list for SLA editing
     issues = [dict(issue) for issue in issues]
 
-    # SLA Calculation
+    # ⏰ SLA Calculation
     for issue in issues:
         if issue["status"] == "Open":
             opened_time = datetime.strptime(issue["date_reported"], "%Y-%m-%d %H:%M")
@@ -188,18 +192,15 @@ def view_issues():
         else:
             issue["sla_hours"] = "-"
 
-    # Progress Bar
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Open'")
-    open_count = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
-    closed_count = cur.fetchone()[0]
+    # 📊 Progress bar based on filtered results
+    open_count = sum(1 for i in issues if i["status"] == "Open")
+    closed_count = sum(1 for i in issues if i["status"] == "Closed")
 
     total = open_count + closed_count
     open_percent = int((open_count / total) * 100) if total else 0
     closed_percent = 100 - open_percent if total else 0
 
-    # Get technicians
+    # 👨‍💻 Technicians
     cur.execute("SELECT username FROM users WHERE role='Technician'")
     technicians = cur.fetchall()
 
@@ -210,7 +211,8 @@ def view_issues():
         issues=issues,
         technicians=technicians,
         open_percent=open_percent,
-        closed_percent=closed_percent
+        closed_percent=closed_percent,
+        current_filter=filter_type
     )
 
 # ================= ASSIGN ISSUE =================
@@ -307,4 +309,4 @@ def export_excel():
     )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()

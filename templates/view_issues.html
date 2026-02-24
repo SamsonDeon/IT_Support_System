@@ -18,6 +18,7 @@
 
 <h2>All Issues</h2>
 
+<!-- 🔎 SEARCH -->
 <form method="GET">
     <input type="text" name="search" placeholder="Search issues...">
     <button type="submit">Search</button>
@@ -25,7 +26,19 @@
 
 <br>
 
-<div style="background:#eee;width:100%;display:flex;">
+<!-- 📅 FILTER BUTTONS -->
+<div>
+    <a href="/view_issues?filter=today">Today</a> |
+    <a href="/view_issues?filter=week">This Week</a> |
+    <a href="/view_issues?filter=month">This Month</a> |
+    <a href="/view_issues?filter=open">Open Only</a> |
+    <a href="/view_issues">Overall</a>
+</div>
+
+<br>
+
+<!-- 📊 PROGRESS BAR -->
+<div style="background:#eee;width:100%;display:flex;height:25px;">
     <div style="background:red;width:{{open_percent}}%;color:white;text-align:center;">
         Open {{open_percent}}%
     </div>
@@ -52,12 +65,16 @@
     <td>{{ issue.id }}</td>
     <td>{{ issue.title }}</td>
     <td>{{ issue.status }}</td>
+
     <td>
         {% if session['role'] == 'Admin' %}
         <form method="POST" action="{{ url_for('assign_issue', issue_id=issue.id) }}">
             <select name="technician">
                 {% for tech in technicians %}
-                    <option value="{{ tech.username }}">{{ tech.username }}</option>
+                    <option value="{{ tech.username }}"
+                        {% if tech.username == issue.assigned_to %}selected{% endif %}>
+                        {{ tech.username }}
+                    </option>
                 {% endfor %}
             </select>
             <button type="submit">Assign</button>
@@ -66,8 +83,10 @@
             {{ issue.assigned_to or "Unassigned" }}
         {% endif %}
     </td>
+
     <td>{{ issue.date_reported }}</td>
     <td>{{ issue.sla_hours }}</td>
+
     <td>
         {% if issue.status == "Open" %}
         <form method="POST" action="{{ url_for('close_issue', issue_id=issue.id) }}">
@@ -81,7 +100,6 @@
     </td>
 </tr>
 {% endfor %}
-
 </table>
 
 </div>
