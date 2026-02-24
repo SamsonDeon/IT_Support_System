@@ -12,6 +12,23 @@ import io
 app = Flask(__name__)
 app.secret_key = "super_secret_enterprise_key"
 
+def log_action(action, target_user=None):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        INSERT INTO audit_logs (action, performed_by, target_user, timestamp)
+        VALUES (?, ?, ?, ?)
+    """, (
+        action,
+        session.get("user"),
+        target_user,
+        datetime.now().strftime("%Y-%m-%d %H:%M")
+    ))
+
+    db.commit()
+    db.close()
+
 def check_sla_alerts():
     db = get_db()
     cur = db.cursor()
@@ -57,6 +74,30 @@ def send_email(subject, body):
         server.quit()
     except Exception as e:
         print("Email failed:", e)
+
+#========PROMOTE AND DEMOT ==========
+
+@app.route("/change_role/<int:user_id>", methods=["POST"])
+def change_role(user_id):
+    if session.get("role") != "Admin":
+        return "Access Denied"
+
+    new_role = request.form.get("role")
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("UPDATE users SET role=? WHERE id=?", (new_role, user_id))
+
+    cur.execute("SELECT username FROM users WHERE id=?", (user_id,))
+    target = cur.fetchone()["username"]
+
+    db.commit()
+    db.close()
+
+    log_action(f"Changed role to {new_role}", target)
+
+    return redirect(url_for("manage_users"))
 
 # ================= DATABASE =================
 def get_db():
@@ -117,6 +158,7 @@ def manage_users():
 
 # ================= DELETE_USER =================
 
+
 @app.route("/delete_user/<int:user_id>", methods=["POST"])
 def delete_user(user_id):
     if session.get("role") != "Admin":
@@ -138,6 +180,9 @@ def delete_user(user_id):
     db.close()
 
     return redirect(url_for("manage_users"))
+log_action("Deleted User", target)
+
+
 
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
@@ -166,6 +211,22 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+#==========AUDIT ===================
+@app.route("/audit_logs")
+def audit_logs():
+    if session.get("role") != "Admin":
+        return "Access Denied"
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC")
+    logs = cur.fetchall()
+
+    db.close()
+
+    return render_template("audit_logs.html", logs=logs)
 
 # ================= DASHBOARD =================
 check_sla_alerts()
@@ -291,12 +352,14 @@ def view_issues():
     )
 
 # ================= ASSIGN ISSUE =================
+
 @app.route("/assign_issue/<int:issue_id>", methods=["POST"])
 def assign_issue(issue_id):
     if session.get("role") != "Admin":
         return "Access Denied"
 
     technician = request.form.get("technician")
+    log_action("Assigned Issue", technician)
 
     db = get_db()
     cur = db.cursor()
@@ -315,6 +378,7 @@ def close_issue(issue_id):
     cur = db.cursor()
 
     date_closed = datetime.now().strftime("%Y-%m-%d %H:%M")
+    log_action("Closed Issue")
 
     cur.execute("""
         UPDATE issues

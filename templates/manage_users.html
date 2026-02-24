@@ -28,12 +28,21 @@
         <tr>
             <td>{{ user.id }}</td>
             <td>{{ user.username }}</td>
-            <td>{{ user.role }}</td>
+            <form method="POST" action="{{ url_for('change_role', user_id=user.id) }}">
+            <select name="role">
+            <option value="Technician" {% if user.role == "Technician" %}selected{% endif %}>Technician</option>
+            <option value="Admin" {% if user.role == "Admin" %}selected{% endif %}>Admin</option>
+            </select>
+            <button type="submit">Update</button>
+</form>
             <td>
                 <form method="POST"
                       action="{{ url_for('delete_user', user_id=user.id) }}"
                       onsubmit="return confirm('Delete this user?');">
                     <button class="btn btn-danger">Delete</button>
+                    <form method="POST" action="{{ url_for('reset_password', user_id=user.id) }}">
+                    <button>Reset Password</button>
+                </form>
                 </form>
             </td>
         </tr>
