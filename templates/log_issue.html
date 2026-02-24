@@ -5,24 +5,43 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h2>Log IT Issue</h2>
-
-        <form method="post">
-            <label>Issue Description</label>
-            <textarea name="description" required></textarea>
-
-            <label>Source</label>
-            <select name="source">
-                <option>WhatsApp</option>
-                <option>Phone Call</option>
-            </select>
-
-            <button type="submit">Submit Issue</button>
-        </form>
-
-        <br>
-        <a href="/dashboard">Back to Dashboard</a>
+    <div class="navbar">
+    <div class="nav-left">
+        <strong>IT Enterprise Support</strong>
     </div>
+
+    <div class="nav-right">
+        Logged in as: {{ session['user'] }}
+        <a href="/dashboard">Dashboard</a>
+        <a href="/log_issue">Log Issue</a>
+        <a href="/view_issues">Issues</a>
+        <a href="/logout">Logout</a>
+    </div>
+</div>
+
+<div class="container">
+    <h2>Log IT Issue</h2>
+
+    <form method="POST">
+
+        <label>Issue Title</label>
+        <input type="text" name="title" required>
+
+        <label>Description</label>
+        <textarea name="description" required></textarea>
+
+        <label>Source</label>
+        <select name="source">
+            <option>WhatsApp</option>
+            <option>Phone Call</option>
+            <option>Email</option>
+        </select>
+
+        <button type="submit">Submit Issue</button>
+    </form>
+
+    <br>
+    <a href="/dashboard">Back to Dashboard</a>
+</div>
 </body>
 </html>

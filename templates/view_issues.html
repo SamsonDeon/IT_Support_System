@@ -5,33 +5,85 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h2>Logged IT Issues</h2>
 
-        <table class="table">
-            <tr>
-                <th>ID</th>
-                <th>Description</th>
-                <th>Source</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Date</th>
-            </tr>
+<div class="navbar">
+    <strong>IT Enterprise Support</strong>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/log_issue">Log Issue</a>
+    <a href="/export_excel">Export Excel</a>
+    <a href="/logout">Logout</a>
+</div>
 
-            {% for issue in issues %}
-            <tr>
-                <td>{{ issue[0] }}</td>
-                <td>{{ issue[1] }}</td>
-                <td>{{ issue[2] }}</td>
-                <td>{{ issue[3] }}</td>
-                <td>{{ issue[4] }}</td>
-                <td>{{ issue[5] }}</td>
-            </tr>
-            {% endfor %}
-        </table>
+<div class="container">
 
-        <br>
-        <a href="/dashboard">Back to Dashboard</a>
+<h2>All Issues</h2>
+
+<form method="GET">
+    <input type="text" name="search" placeholder="Search issues...">
+    <button type="submit">Search</button>
+</form>
+
+<br>
+
+<div style="background:#eee;width:100%;display:flex;">
+    <div style="background:red;width:{{open_percent}}%;color:white;text-align:center;">
+        Open {{open_percent}}%
     </div>
+    <div style="background:green;width:{{closed_percent}}%;color:white;text-align:center;">
+        Closed {{closed_percent}}%
+    </div>
+</div>
+
+<br>
+
+<table border="1" width="100%">
+<tr>
+    <th>ID</th>
+    <th>Title</th>
+    <th>Status</th>
+    <th>Assigned To</th>
+    <th>Date Reported</th>
+    <th>SLA (hrs)</th>
+    <th>Action</th>
+</tr>
+
+{% for issue in issues %}
+<tr>
+    <td>{{ issue.id }}</td>
+    <td>{{ issue.title }}</td>
+    <td>{{ issue.status }}</td>
+    <td>
+        {% if session['role'] == 'Admin' %}
+        <form method="POST" action="{{ url_for('assign_issue', issue_id=issue.id) }}">
+            <select name="technician">
+                {% for tech in technicians %}
+                    <option value="{{ tech.username }}">{{ tech.username }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Assign</button>
+        </form>
+        {% else %}
+            {{ issue.assigned_to or "Unassigned" }}
+        {% endif %}
+    </td>
+    <td>{{ issue.date_reported }}</td>
+    <td>{{ issue.sla_hours }}</td>
+    <td>
+        {% if issue.status == "Open" %}
+        <form method="POST" action="{{ url_for('close_issue', issue_id=issue.id) }}">
+            <button type="submit">Close</button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('reopen_issue', issue_id=issue.id) }}">
+            <button type="submit">Reopen</button>
+        </form>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
 </body>
 </html>

@@ -1,36 +1,79 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>Bellevue_Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h2>IT Support Dashboard</h2>
 
-        <div class="stats">
-            <div class="card">
-                <strong>Total</strong><br>{{ total }}
-            </div>
-            <div class="card">
-                <strong>Pending</strong><br>{{ pending }}
-            </div>
-            <div class="card">
-                <strong>Hardware</strong><br>{{ hardware }}
-            </div>
-            <div class="card">
-                <strong>Software</strong><br>{{ software }}
-            </div>
-            <div class="card">
-                <strong>Network</strong><br>{{ network }}
-            </div>
+<div class="navbar">
+    <div class="nav-left">
+        <strong>IT Bellevue Support</strong>
+    </div>
+
+    <div class="nav-right">
+        Logged in as: {{ session['user'] }}
+        <a href="/dashboard">Dashboard</a>
+        <a href="/log_issue">Log Issue</a>
+        <a href="/view_issues">Issues</a>
+        <a href="/logout">Logout</a>
+    </div>
+</div>
+
+<div class="container">
+    <h2>IT Support Bellevue</h2>
+
+    <!-- STAT CARDS -->
+    <div class="stats">
+        <div class="card">
+            <strong>Total Issues Today</strong>
+            <span class="total">{{ total }}</span>
         </div>
 
-        <br><hr><br>
+        <div class="card">
+            <strong>Pending Issues</strong>
+            <span class="pending">{{ pending }}</span>
+        </div>
 
-        <a href="/log_issue">Log New Issue</a> |
-        <a href="/view_issues">View Issues</a> |
-        <a href="/">Logout</a>
+        <div class="card">
+            <strong>Solved Issues</strong>
+            <span class="solved">{{ solved }}</span>
+        </div>
     </div>
+
+    <!-- CHART SECTION -->
+    <div class="chart-container">
+        <canvas id="issueChart"></canvas>
+    </div>
+
+    <hr>
+
+    <div class="action-buttons">
+        <a class="btn btn-primary" href="/log_issue">Log New Issue</a>
+        <a class="btn btn-success" href="/view_issues">View Issues</a>
+        <a class="btn btn-danger" href="/logout">Logout</a>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('issueChart');
+
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Open', 'Closed'],
+        datasets: [{
+            data: [{{ pending }}, {{ solved }}]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
+</script>
+
 </body>
 </html>
