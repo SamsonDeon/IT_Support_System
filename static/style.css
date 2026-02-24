@@ -365,3 +365,37 @@ form button:hover {
     font-size: 13px;
     line-height: 28px;
 }
+/* AUTH PAGES */
+.auth-body {
+    background: linear-gradient(135deg, #1f2937, #111827);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.auth-container {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    width: 350px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+.auth-container h2 {
+    margin-bottom: 20px;
+}
+
+.auth-container input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.auth-container button {
+    width: 100%;
+}

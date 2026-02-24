@@ -2,26 +2,21 @@
 <html>
 <head>
     <title>Create User</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="auth-body">
 
-<h2>Create New User</h2>
+<div class="auth-container">
+    <h2>Create New Technician</h2>
 
-<form method="POST">
-    <input type="text" name="username" placeholder="Username" required><br><br>
+    <form method="POST">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit" class="btn btn-primary">Create User</button>
+    </form>
 
-    <input type="password" name="password" placeholder="Password" required><br><br>
-
-    <select name="role" required>
-        <option value="Admin">Admin</option>
-        <option value="Technician">Technician</option>
-    </select><br><br>
-
-    <button type="submit">Create User</button>
-</form>
-
-<br>
-<a href="/dashboard">Back to Dashboard</a>
+    <a href="/dashboard">Back to Dashboard</a>
+</div>
 
 </body>
 </html>

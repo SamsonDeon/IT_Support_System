@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="navbar">
+    <strong>IT Enterprise Support</strong>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/signup">Create User</a>
+    <a href="/logout">Logout</a>
+</div>
+
+<div class="container">
+    <h2>User Management</h2>
+
+    <table class="table">
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Action</th>
+        </tr>
+
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.role }}</td>
+            <td>
+                <form method="POST"
+                      action="{{ url_for('delete_user', user_id=user.id) }}"
+                      onsubmit="return confirm('Delete this user?');">
+                    <button class="btn btn-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+</body>
+</html>

@@ -102,6 +102,43 @@ def signup():
 
     return render_template("signup.html")
 
+@app.route("/manage_users")
+def manage_users():
+    if session.get("role") != "Admin":
+        return "Access Denied"
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT id, username, role FROM users")
+    users = cur.fetchall()
+    db.close()
+
+    return render_template("manage_users.html", users=users)
+
+# ================= DELETE_USER =================
+
+@app.route("/delete_user/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
+    if session.get("role") != "Admin":
+        return "Access Denied"
+
+    db = get_db()
+    cur = db.cursor()
+
+    # Prevent deleting yourself
+    cur.execute("SELECT username FROM users WHERE id=?", (user_id,))
+    user = cur.fetchone()
+
+    if user and user["username"] == session["user"]:
+        db.close()
+        return "You cannot delete yourself."
+
+    cur.execute("DELETE FROM users WHERE id=?", (user_id,))
+    db.commit()
+    db.close()
+
+    return redirect(url_for("manage_users"))
+
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():

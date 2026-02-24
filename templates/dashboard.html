@@ -21,6 +21,9 @@
         {% if session['role'] == 'Admin' %}
         <a href="/signup">Create User</a>
         {% endif %}
+        {% if session['role'] == 'Admin' %}
+        <a class="btn btn-warning" href="/manage_users">Manage Users</a>
+        {% endif %}
 </div>
 
 <div class="container">
