@@ -64,6 +64,44 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+# ================= SIGN UP =================
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    # Only Admin can create users
+    if session.get("role") != "Admin":
+        return "Access Denied"
+
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        role = request.form.get("role")
+
+        hashed_password = generate_password_hash(password)
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("SELECT * FROM users WHERE username=?", (username,))
+        existing = cur.fetchone()
+
+        if existing:
+            db.close()
+            return "User already exists"
+
+        cur.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (username, hashed_password, role)
+        )
+        db.commit()
+        db.close()
+
+        return redirect(url_for("dashboard"))
+
+    return render_template("signup.html")
+
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
