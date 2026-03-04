@@ -2,34 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <title>Login_page</title>
 </head>
 <body>
-    <div class="auth-box">
-    <h2>IT Support System</h2>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for message in messages %}
-          <script>
-            alert("{{ message }}");
-          </script>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+<div class="login-container">
+    <div class="login-box">
+        <h1>WELCOME TO EMHARE</h1>
 
-    <form method="post">
-        <input type="text" name="username" placeholder="Username" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <button type="submit">Login</button>
-    </form>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="error-message">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
 
-    <p style="text-align:center; margin-top:15px;">
-        Don't have an account?
-        <a href="/signup">Sign Up</a>
-    </p>
+        <form method="POST">
+            <label>Username</label>
+            <input type="text" name="username" required>
+
+            <label>Password</label>
+            <input type="password" name="password" required>
+
+            <button type="submit">LOGIN</button>
+        </form>
+
+        <p class="reset-text">
+            <strong>NB:</strong> Forgot Password?
+            <a href="#">Reset password</a>
+        </p>
+    </div>
 </div>
+
 </body>
 </html>
