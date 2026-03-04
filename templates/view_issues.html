@@ -3,82 +3,111 @@
 <head>
     <title>View Issues</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
 <div class="navbar">
     <strong>IT Enterprise Support</strong>
+
     <div class="nav-right">
-        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
-        <a href="/log_issue" class="btn btn-success">Log Issue</a>
-        <a href="/export_excel" class="btn btn-warning">Export Excel</a>
-        <a href="/logout" class="btn btn-danger">Logout</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/log_issue">Log Issue</a>
+        <a href="/export_excel">Export Excel</a>
+        <a href="/logout">Logout</a>
     </div>
 </div>
 
 <div class="container">
 
-    <h2>All Issues</h2>
+<h2>All Issues</h2>
 
-    <!-- FILTERS -->
-    <div style="margin-bottom:20px;">
-        <a href="/view_issues?filter=all" class="btn">All</a>
-        <a href="/view_issues?filter=today" class="btn">Today</a>
-        <a href="/view_issues?filter=month" class="btn">This Month</a>
-        <a href="/view_issues?filter=year" class="btn">This Year</a>
-    </div>
+<form method="GET">
+    <input type="text" name="search" placeholder="Search issues...">
+    <button class="btn">Search</button>
+</form>
 
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Category</th>
-                    <th>Status</th>
-                    <th>Assigned</th>
-                    <th>Date</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
+<br>
 
-            <tbody>
-                {% for issue in issues %}
-                <tr>
-                    <td>{{ issue["id"] }}</td>
-                    <td>{{ issue["title"] }}</td>
-                    <td>{{ issue["category"] }}</td>
-
-                    <td>
-                        {% if issue["status"] == "Open" %}
-                            <span class="badge open">Open</span>
-                        {% else %}
-                            <span class="badge closed">Closed</span>
-                        {% endif %}
-                    </td>
-
-                    <td>{{ issue["assigned_to"] }}</td>
-                    <td>{{ issue["date_reported"] }}</td>
-
-                    <td>
-                        {% if issue["status"] == "Open" %}
-                        <form action="/close_issue/{{ issue['id'] }}" method="POST">
-                            <button class="btn btn-success">Close</button>
-                        </form>
-                        {% else %}
-                        <form action="/reopen_issue/{{ issue['id'] }}" method="POST">
-                            <button class="btn btn-warning">Reopen</button>
-                        </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
+<div>
+    <a href="/view_issues?filter=today">Today</a> |
+    <a href="/view_issues?filter=month">This Month</a> |
+    <a href="/view_issues?filter=year">This Year</a> |
+    <a href="/view_issues">Overall</a>
 </div>
 
+<br>
+
+<div style="background:#eee;width:100%;display:flex;height:25px;border-radius:10px;overflow:hidden;">
+    <div style="background:red;width:{{open_percent}}%;color:white;text-align:center;">
+        Open {{open_percent}}%
+    </div>
+    <div style="background:green;width:{{closed_percent}}%;color:white;text-align:center;">
+        Closed {{closed_percent}}%
+    </div>
+</div>
+
+<br>
+
+<table class="table">
+<tr>
+    <th>ID</th>
+    <th>Title</th>
+    <th>Status</th>
+    <th>Assigned To</th>
+    <th>Date Reported</th>
+    <th>SLA (hrs)</th>
+    <th>Action</th>
+</tr>
+
+{% for issue in issues %}
+<tr>
+    <td>{{ issue.id }}</td>
+    <td>{{ issue.title }}</td>
+
+    <td>
+        {% if issue.status == "Open" %}
+            <span class="badge badge-open">Open</span>
+        {% else %}
+            <span class="badge badge-closed">Closed</span>
+        {% endif %}
+    </td>
+
+    <td>
+        {% if session['role'] == 'Admin' %}
+        <form method="POST" action="{{ url_for('assign_issue', issue_id=issue.id) }}">
+            <select name="technician">
+                {% for tech in technicians %}
+                    <option value="{{ tech.username }}"
+                        {% if tech.username == issue.assigned_to %}selected{% endif %}>
+                        {{ tech.username }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-success">Assign</button>
+        </form>
+        {% else %}
+            {{ issue.assigned_to or "Unassigned" }}
+        {% endif %}
+    </td>
+
+    <td>{{ issue.date_reported }}</td>
+    <td>{{ issue.sla_hours }}</td>
+
+    <td>
+        {% if issue.status == "Open" %}
+        <form method="POST" action="{{ url_for('close_issue', issue_id=issue.id) }}">
+            <button class="btn btn-success">Close</button>
+        </form>
+        {% else %}
+        <form method="POST" action="{{ url_for('reopen_issue', issue_id=issue.id) }}">
+            <button class="btn btn-warning">Reopen</button>
+        </form>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+</table>
+
+</div>
 </body>
 </html>

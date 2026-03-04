@@ -181,33 +181,63 @@ def view_issues():
     if "user" not in session:
         return redirect(url_for("login"))
 
+    search = request.args.get("search")
     filter_type = request.args.get("filter", "all")
 
     db = get_db()
     cur = db.cursor()
+
+    base_query = "SELECT * FROM issues"
+    conditions = []
+    params = []
+
+    if search:
+        conditions.append("title LIKE ?")
+        params.append(f"%{search}%")
 
     today = datetime.now().strftime("%Y-%m-%d")
     current_month = datetime.now().strftime("%m")
     current_year = datetime.now().strftime("%Y")
 
     if filter_type == "today":
-        cur.execute("SELECT * FROM issues WHERE date(date_reported)=?", (today,))
+        conditions.append("date(date_reported)=?")
+        params.append(today)
     elif filter_type == "month":
-        cur.execute("SELECT * FROM issues WHERE strftime('%m', date_reported)=?", (current_month,))
+        conditions.append("strftime('%m', date_reported)=?")
+        params.append(current_month)
     elif filter_type == "year":
-        cur.execute("SELECT * FROM issues WHERE strftime('%Y', date_reported)=?", (current_year,))
-    else:
-        cur.execute("SELECT * FROM issues ORDER BY id DESC")
+        conditions.append("strftime('%Y', date_reported)=?")
+        params.append(current_year)
 
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    base_query += " ORDER BY id DESC"
+
+    cur.execute(base_query, params)
     issues = cur.fetchall()
+
+    # technicians for assign dropdown
+    cur.execute("SELECT username FROM users WHERE role='Technician'")
+    technicians = cur.fetchall()
+
+    # calculate percentages
+    total = len(issues)
+    open_count = len([i for i in issues if i["status"] == "Open"])
+    closed_count = len([i for i in issues if i["status"] == "Closed"])
+
+    open_percent = round((open_count / total) * 100, 2) if total > 0 else 0
+    closed_percent = round((closed_count / total) * 100, 2) if total > 0 else 0
+
     db.close()
 
     return render_template(
         "view_issues.html",
         issues=issues,
-        filter_type=filter_type
+        technicians=technicians,
+        open_percent=open_percent,
+        closed_percent=closed_percent
     )
-
 
 # ================= CLOSE ISSUE =================
 @app.route("/close_issue/<int:issue_id>", methods=["POST"])
