@@ -8,13 +8,30 @@
 
 <div class="navbar">
     <strong>IT Enterprise Support</strong>
-    <div>
-        {{ session['user'] }}
-        <a href="/dashboard">Dashboard</a>
-        <a href="/log_issue">Log Issue</a>
-        <a href="/view_issues">Issues</a>
-        <a href="/audit_logs">Audit</a>
-        <a href="/logout">Logout</a>
+
+    <div class="nav-right">
+
+        <!-- Dark Mode -->
+        <button class="btn btn-primary" onclick="toggleDark()">🌙</button>
+
+        <!-- Notifications -->
+        <div class="notification">
+            🔔
+            <span>{{ pending }}</span>
+        </div>
+
+        <!-- Profile -->
+        <div class="profile" onclick="toggleProfile()">
+            👤 {{ session['user'] }}
+            <div class="profile-menu">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/log_issue">Log Issue</a>
+                <a href="/view_issues">Issues</a>
+                <a href="/audit_logs">Audit Logs</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -25,45 +42,90 @@
 
 <div class="container">
 
+    <!-- Animated Stats -->
     <div class="stats">
         <div class="card">
             <h3>Total Issues</h3>
-            <span class="total">{{ total }}</span>
+            <span class="total counter" data-target="{{ total }}">0</span>
         </div>
 
         <div class="card">
             <h3>Open Issues</h3>
-            <span class="pending">{{ pending }}</span>
+            <span class="pending counter" data-target="{{ pending }}">0</span>
         </div>
 
         <div class="card">
             <h3>Closed Issues</h3>
-            <span class="solved">{{ solved }}</span>
+            <span class="solved counter" data-target="{{ solved }}">0</span>
         </div>
     </div>
 
-    <div class="chart-container">
-        <canvas id="issueChart"></canvas>
+    <!-- Line Chart -->
+    <div style="max-width:800px;margin:auto;">
+        <canvas id="lineChart"></canvas>
     </div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-new Chart(document.getElementById('issueChart'), {
-    type: 'doughnut',
+/* ===============================
+   Animated Counters
+================================= */
+
+document.querySelectorAll('.counter').forEach(counter => {
+    const update = () => {
+        const target = +counter.getAttribute('data-target');
+        const current = +counter.innerText;
+        const increment = target / 40;
+
+        if(current < target){
+            counter.innerText = Math.ceil(current + increment);
+            setTimeout(update, 30);
+        } else {
+            counter.innerText = target;
+        }
+    };
+    update();
+});
+
+/* ===============================
+   Line Graph
+================================= */
+
+new Chart(document.getElementById('lineChart'), {
+    type: 'line',
     data: {
-        labels: ['Open', 'Closed'],
+        labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
         datasets: [{
-            data: [{{ pending }}, {{ solved }}],
-            backgroundColor: ['#f39c12', '#2ecc71']
+            label: 'Issues This Year',
+            data: {{ monthly_data|safe }},
+            borderColor: '#667eea',
+            fill: false,
+            tension: 0.3
         }]
     },
     options: {
-        responsive: true,
-        maintainAspectRatio: false
+        responsive: true
     }
 });
+
+/* ===============================
+   Dark Mode
+================================= */
+
+function toggleDark(){
+    document.body.classList.toggle("dark");
+}
+
+/* ===============================
+   Profile Toggle
+================================= */
+
+function toggleProfile(){
+    document.querySelector('.profile').classList.toggle('active');
+}
 </script>
 
 </body>

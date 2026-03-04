@@ -228,27 +228,32 @@ def audit_logs():
     return render_template("audit_logs.html", logs=logs)
 
 # ================= DASHBOARD =================
-check_sla_alerts()
-@app.route("/dashboard")
+
+from sqlalchemy import extract
+
+@app.route('/dashboard')
 def dashboard():
-    if "user" not in session:
-        return redirect(url_for("login"))
+    if 'user' not in session:
+        return redirect('/login')
 
-    db = get_db()
-    cur = db.cursor()
+    total = Issue.query.count()
+    pending = Issue.query.filter_by(status="Open").count()
+    solved = Issue.query.filter_by(status="Closed").count()
 
-    cur.execute("SELECT COUNT(*) FROM issues")
-    total = cur.fetchone()[0]
+    monthly = []
+    for month in range(1,13):
+        count = Issue.query.filter(
+            extract('month', Issue.date_reported) == month
+        ).count()
+        monthly.append(count)
 
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Open'")
-    open_count = cur.fetchone()[0]
-
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
-    closed_count = cur.fetchone()[0]
-
-    db.close()
-
-    return render_template("dashboard.html", total=total, pending=open_count, solved=closed_count)
+    return render_template(
+        'dashboard.html',
+        total=total,
+        pending=pending,
+        solved=solved,
+        monthly_data=monthly
+    )
 
 # ================= LOG ISSUE =================
 @app.route("/log_issue", methods=["GET", "POST"])
