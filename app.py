@@ -10,9 +10,25 @@ from email.mime.multipart import MIMEMultipart
 import io
 
 app = Flask(__name__)
-app.secret_key = "super_secret_enterprise_key"
 
+# ================= SECURITY =================
+app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_key")
+
+DATABASE = "database.db"
+
+
+# ================= DATABASE =================
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+# ================= AUDIT LOG =================
 def log_action(action, target_user=None):
+    if "user" not in session:
+        return
+
     db = get_db()
     cur = db.cursor()
 
@@ -29,32 +45,11 @@ def log_action(action, target_user=None):
     db.commit()
     db.close()
 
-def check_sla_alerts():
-    db = get_db()
-    cur = db.cursor()
 
-    cur.execute("SELECT * FROM issues WHERE status='Open'")
-    issues = cur.fetchall()
-
-    for issue in issues:
-        opened_time = datetime.strptime(issue["date_reported"], "%Y-%m-%d %H:%M")
-        hours_open = (datetime.now() - opened_time).total_seconds() / 3600
-
-        if hours_open > 24:
-            send_email(
-                "🚨 SLA ALERT - Issue Over 24 Hours",
-                f"""
-                Issue ID: {issue['id']}
-                Title: {issue['title']}
-                Has been open for more than 24 hours.
-                Immediate attention required.
-                """
-            )
-
-    db.close()
 # ================= EMAIL CONFIG =================
 EMAIL_ADDRESS = os.environ.get("EMAIL_USER")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASS")
+
 
 def send_email(subject, body):
     if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
@@ -75,135 +70,29 @@ def send_email(subject, body):
     except Exception as e:
         print("Email failed:", e)
 
-#========PROMOTE AND DEMOT ==========
-
-@app.route("/change_role/<int:user_id>", methods=["POST"])
-def change_role(user_id):
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    new_role = request.form.get("role")
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("UPDATE users SET role=? WHERE id=?", (new_role, user_id))
-
-    cur.execute("SELECT username FROM users WHERE id=?", (user_id,))
-    target = cur.fetchone()["username"]
-
-    db.commit()
-    db.close()
-
-    log_action(f"Changed role to {new_role}", target)
-
-    return redirect(url_for("manage_users"))
-
-# ================= DATABASE =================
-def get_db():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
-
-# ================= SIGN UP =================
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if "user" not in session:
-        return redirect(url_for("login"))
-
-    # Only Admin can create users
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        role = request.form.get("role")
-
-        hashed_password = generate_password_hash(password)
-
-        db = get_db()
-        cur = db.cursor()
-
-        cur.execute("SELECT * FROM users WHERE username=?", (username,))
-        existing = cur.fetchone()
-
-        if existing:
-            db.close()
-            return "User already exists"
-
-        cur.execute(
-            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            (username, hashed_password, role)
-        )
-        db.commit()
-        db.close()
-
-        return redirect(url_for("dashboard"))
-
-    return render_template("signup.html")
-
-@app.route("/manage_users")
-def manage_users():
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT id, username, role FROM users")
-    users = cur.fetchall()
-    db.close()
-
-    return render_template("manage_users.html", users=users)
-
-# ================= DELETE_USER =================
-
-
-@app.route("/delete_user/<int:user_id>", methods=["POST"])
-def delete_user(user_id):
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    db = get_db()
-    cur = db.cursor()
-
-    # Prevent deleting yourself
-    cur.execute("SELECT username FROM users WHERE id=?", (user_id,))
-    user = cur.fetchone()
-
-    if user and user["username"] == session["user"]:
-        db.close()
-        return "You cannot delete yourself."
-
-    cur.execute("DELETE FROM users WHERE id=?", (user_id,))
-    db.commit()
-    db.close()
-
-    return redirect(url_for("manage_users"))
-
-
 
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        user = request.form.get("username")
-        pwd = request.form.get("password")
+        username = request.form.get("username")
+        password = request.form.get("password")
 
         db = get_db()
         cur = db.cursor()
-        cur.execute("SELECT * FROM users WHERE username=?", (user,))
-        result = cur.fetchone()
+        cur.execute("SELECT * FROM users WHERE username=?", (username,))
+        user = cur.fetchone()
         db.close()
 
-        if result and check_password_hash(result["password"], pwd):
-            session["user"] = result["username"]
-            session["role"] = result["role"]
+        if user and check_password_hash(user["password"], password):
+            session["user"] = user["username"]
+            session["role"] = user["role"]
             return redirect(url_for("dashboard"))
         else:
             flash("Invalid username or password")
 
     return render_template("login.html")
+
 
 # ================= LOGOUT =================
 @app.route("/logout")
@@ -211,24 +100,8 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-#==========AUDIT ===================
-@app.route("/audit_logs")
-def audit_logs():
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC")
-    logs = cur.fetchall()
-
-    db.close()
-
-    return render_template("audit_logs.html", logs=logs)
 
 # ================= DASHBOARD =================
-
 @app.route("/dashboard")
 def dashboard():
     if "user" not in session:
@@ -237,36 +110,41 @@ def dashboard():
     db = get_db()
     cur = db.cursor()
 
-    # Total issues
     cur.execute("SELECT COUNT(*) FROM issues")
     total = cur.fetchone()[0]
 
-    # Open issues
     cur.execute("SELECT COUNT(*) FROM issues WHERE status='Open'")
     pending = cur.fetchone()[0]
 
-    # Closed issues
     cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
     solved = cur.fetchone()[0]
 
-    # Monthly data for line chart (issues per month)
+    # Monthly performance
     monthly_data = []
     for month in range(1, 13):
-        cur.execute(
-            "SELECT COUNT(*) FROM issues WHERE strftime('%m', date_reported) = ?",
-            (f"{month:02}",)
-        )
+        cur.execute("""
+            SELECT COUNT(*) FROM issues
+            WHERE strftime('%m', date_reported) = ?
+        """, (f"{month:02}",))
         monthly_data.append(cur.fetchone()[0])
 
     db.close()
+
+    # 🔥 Calculate percentage solved
+    percentage = 0
+    if total > 0:
+        percentage = round((solved / total) * 100, 2)
 
     return render_template(
         "dashboard.html",
         total=total,
         pending=pending,
         solved=solved,
+        percentage=percentage,
         monthly_data=monthly_data
     )
+
+
 # ================= LOG ISSUE =================
 @app.route("/log_issue", methods=["GET", "POST"])
 def log_issue():
@@ -290,14 +168,14 @@ def log_issue():
         db.close()
 
         send_email("New Issue Logged", f"Issue: {title}")
+        log_action("Logged Issue")
 
         return redirect(url_for("view_issues"))
 
     return render_template("log_issue.html")
 
-# ================= VIEW ISSUES =================
-from datetime import datetime
 
+# ================= VIEW ISSUES =================
 @app.route("/view_issues")
 def view_issues():
     if "user" not in session:
@@ -313,22 +191,15 @@ def view_issues():
     current_year = datetime.now().strftime("%Y")
 
     if filter_type == "today":
-        cur.execute("SELECT * FROM issues WHERE date_reported = ?", (today,))
+        cur.execute("SELECT * FROM issues WHERE date(date_reported)=?", (today,))
     elif filter_type == "month":
-        cur.execute(
-            "SELECT * FROM issues WHERE strftime('%m', date_reported)=?",
-            (current_month,)
-        )
+        cur.execute("SELECT * FROM issues WHERE strftime('%m', date_reported)=?", (current_month,))
     elif filter_type == "year":
-        cur.execute(
-            "SELECT * FROM issues WHERE strftime('%Y', date_reported)=?",
-            (current_year,)
-        )
+        cur.execute("SELECT * FROM issues WHERE strftime('%Y', date_reported)=?", (current_year,))
     else:
-        cur.execute("SELECT * FROM issues")
+        cur.execute("SELECT * FROM issues ORDER BY id DESC")
 
     issues = cur.fetchall()
-
     db.close()
 
     return render_template(
@@ -336,34 +207,18 @@ def view_issues():
         issues=issues,
         filter_type=filter_type
     )
-# ================= ASSIGN ISSUE =================
 
-@app.route("/assign_issue/<int:issue_id>", methods=["POST"])
-def assign_issue(issue_id):
-    if session.get("role") != "Admin":
-        return "Access Denied"
-
-    technician = request.form.get("technician")
-    log_action("Assigned Issue", technician)
-
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("UPDATE issues SET assigned_to=? WHERE id=?", (technician, issue_id))
-    db.commit()
-    db.close()
-
-    send_email("Issue Assigned", f"Issue {issue_id} assigned to {technician}")
-
-    return redirect(url_for("view_issues"))
 
 # ================= CLOSE ISSUE =================
 @app.route("/close_issue/<int:issue_id>", methods=["POST"])
 def close_issue(issue_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     db = get_db()
     cur = db.cursor()
 
     date_closed = datetime.now().strftime("%Y-%m-%d %H:%M")
-    log_action("Closed Issue")
 
     cur.execute("""
         UPDATE issues
@@ -375,12 +230,17 @@ def close_issue(issue_id):
     db.close()
 
     send_email("Issue Closed", f"Issue {issue_id} closed.")
+    log_action("Closed Issue")
 
     return redirect(url_for("view_issues"))
+
 
 # ================= REOPEN ISSUE =================
 @app.route("/reopen_issue/<int:issue_id>", methods=["POST"])
 def reopen_issue(issue_id):
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     db = get_db()
     cur = db.cursor()
 
@@ -393,11 +253,16 @@ def reopen_issue(issue_id):
     db.commit()
     db.close()
 
+    log_action("Reopened Issue")
     return redirect(url_for("view_issues"))
+
 
 # ================= EXPORT EXCEL =================
 @app.route("/export_excel")
 def export_excel():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
     db = get_db()
     cur = db.cursor()
     cur.execute("SELECT * FROM issues")
@@ -431,6 +296,7 @@ def export_excel():
         download_name="IT_Issues_Report.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 if __name__ == "__main__":
     app.run()

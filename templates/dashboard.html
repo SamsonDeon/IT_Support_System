@@ -3,6 +3,7 @@
 <head>
     <title>Enterprise Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
@@ -27,7 +28,13 @@
                 <a href="/dashboard">Dashboard</a>
                 <a href="/log_issue">Log Issue</a>
                 <a href="/view_issues">Issues</a>
+
+                {% if session['role'] == "Admin" %}
+                <a href="/manage_users">Manage Users</a>
                 <a href="/audit_logs">Audit Logs</a>
+                <a href="/signup">Audit Logs</a>
+                {% endif %}
+
                 <a href="/logout">Logout</a>
             </div>
         </div>
@@ -42,7 +49,7 @@
 
 <div class="container">
 
-    <!-- Animated Stats -->
+    <!-- ================= STATS ================= -->
     <div class="stats">
         <div class="card">
             <h3>Total Issues</h3>
@@ -60,9 +67,39 @@
         </div>
     </div>
 
-    <!-- Line Chart -->
-    <div style="max-width:800px;margin:auto;">
-        <canvas id="lineChart"></canvas>
+    <!-- ================= SOLVED PERCENTAGE ================= -->
+    <div class="card" style="margin-top:30px;">
+        <h3>📊 Resolution Rate</h3>
+        <h2>{{ percentage }}%</h2>
+
+        <div style="background:#eee;height:25px;border-radius:10px;overflow:hidden;">
+            <div style="
+                width: {{ percentage }}%;
+                background: linear-gradient(90deg,#28a745,#20c997);
+                height: 25px;
+                text-align:center;
+                color:white;
+                font-weight:bold;
+                transition:1s;
+            ">
+                {{ percentage }}%
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= CHARTS ================= -->
+    <div style="display:flex;flex-wrap:wrap;gap:40px;margin-top:40px;justify-content:center;">
+
+        <!-- Line Chart -->
+        <div style="flex:1;min-width:300px;max-width:600px;">
+            <canvas id="lineChart"></canvas>
+        </div>
+
+        <!-- Pie Chart -->
+        <div style="flex:1;min-width:300px;max-width:400px;">
+            <canvas id="pieChart"></canvas>
+        </div>
+
     </div>
 
 </div>
@@ -102,8 +139,27 @@ new Chart(document.getElementById('lineChart'), {
             label: 'Issues This Year',
             data: {{ monthly_data|safe }},
             borderColor: '#667eea',
-            fill: false,
+            backgroundColor: 'rgba(102,126,234,0.1)',
+            fill: true,
             tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+
+/* ===============================
+   Pie Chart
+================================= */
+
+new Chart(document.getElementById('pieChart'), {
+    type: 'pie',
+    data: {
+        labels: ['Open', 'Closed'],
+        datasets: [{
+            data: [{{ pending }}, {{ solved }}],
+            backgroundColor: ['#ff9800','#28a745']
         }]
     },
     options: {
