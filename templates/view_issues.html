@@ -1,68 +1,88 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Issues</title>
+    <title>Issues Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<!-- NAVBAR -->
 <div class="navbar">
     <strong>IT Enterprise Support</strong>
-    <div>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/log_issue">Log Issue</a>
-        <a href="/logout">Logout</a>
+
+    <div class="nav-right">
+
+        <button class="btn btn-primary" onclick="toggleDark()">🌙</button>
+
+        <div class="profile" onclick="toggleProfile()">
+            👤 {{ session['user'] }}
+            <div class="profile-menu">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/log_issue">Log Issue</a>
+                <a href="/view_issues">Issues</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+
     </div>
+</div>
+
+<div class="hero">
+    <h1>Issues Overview</h1>
+    <p>Filter and manage reported IT issues</p>
 </div>
 
 <div class="container">
 
-    <h2>All Logged Issues</h2>
+    <!-- FILTER BUTTONS -->
+    <div style="margin-bottom:20px;">
+        <a href="/view_issues?filter=all" class="btn btn-primary">All</a>
+        <a href="/view_issues?filter=today" class="btn btn-primary">Today</a>
+        <a href="/view_issues?filter=month" class="btn btn-primary">This Month</a>
+        <a href="/view_issues?filter=year" class="btn btn-primary">This Year</a>
+    </div>
 
-    <table class="table">
-        <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Status</th>
-            <th>Assigned</th>
-            <th>Date</th>
-            <th>Action</th>
-        </tr>
+    <!-- TABLE -->
+    <div class="card">
+        <table class="table">
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
 
-        {% for issue in issues %}
-        <tr>
-            <td>{{ issue.id }}</td>
-            <td>{{ issue.title }}</td>
-            <td>{{ issue.description }}</td>
+            {% for issue in issues %}
+            <tr>
+                <td>{{ issue[0] }}</td>
+                <td>{{ issue[1] }}</td>
+                <td>{{ issue[2] }}</td>
+                <td>
+                    {% if issue[3] == "Open" %}
+                        <span class="pending">{{ issue[3] }}</span>
+                    {% else %}
+                        <span class="solved">{{ issue[3] }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ issue[4] }}</td>
+            </tr>
+            {% endfor %}
 
-            <td>
-                {% if issue.status == "Open" %}
-                <span class="badge badge-open">Open</span>
-                {% else %}
-                <span class="badge badge-closed">Closed</span>
-                {% endif %}
-            </td>
-
-            <td>{{ issue.assigned_to or "Unassigned" }}</td>
-            <td>{{ issue.date_reported }}</td>
-
-            <td>
-                {% if issue.status == "Open" %}
-                <form method="POST" action="{{ url_for('close_issue', issue_id=issue.id) }}">
-                    <button class="btn btn-success">Close</button>
-                </form>
-                {% else %}
-                <form method="POST" action="{{ url_for('reopen_issue', issue_id=issue.id) }}">
-                    <button class="btn btn-warning">Reopen</button>
-                </form>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </table>
+        </table>
+    </div>
 
 </div>
+
+<script>
+function toggleDark(){
+    document.body.classList.toggle("dark");
+}
+
+function toggleProfile(){
+    document.querySelector('.profile').classList.toggle('active');
+}
+</script>
 
 </body>
 </html>

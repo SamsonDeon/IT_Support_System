@@ -229,32 +229,44 @@ def audit_logs():
 
 # ================= DASHBOARD =================
 
-from sqlalchemy import extract
-
-@app.route('/dashboard')
+@app.route("/dashboard")
 def dashboard():
-    if 'user' not in session:
-        return redirect('/login')
+    if "user" not in session:
+        return redirect(url_for("login"))
 
-    total = Issue.query.count()
-    pending = Issue.query.filter_by(status="Open").count()
-    solved = Issue.query.filter_by(status="Closed").count()
+    db = get_db()
+    cur = db.cursor()
 
-    monthly = []
-    for month in range(1,13):
-        count = Issue.query.filter(
-            extract('month', Issue.date_reported) == month
-        ).count()
-        monthly.append(count)
+    # Total issues
+    cur.execute("SELECT COUNT(*) FROM issues")
+    total = cur.fetchone()[0]
+
+    # Open issues
+    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Open'")
+    pending = cur.fetchone()[0]
+
+    # Closed issues
+    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
+    solved = cur.fetchone()[0]
+
+    # Monthly data for line chart (issues per month)
+    monthly_data = []
+    for month in range(1, 13):
+        cur.execute(
+            "SELECT COUNT(*) FROM issues WHERE strftime('%m', date_reported) = ?",
+            (f"{month:02}",)
+        )
+        monthly_data.append(cur.fetchone()[0])
+
+    db.close()
 
     return render_template(
-        'dashboard.html',
+        "dashboard.html",
         total=total,
         pending=pending,
         solved=solved,
-        monthly_data=monthly
+        monthly_data=monthly_data
     )
-
 # ================= LOG ISSUE =================
 @app.route("/log_issue", methods=["GET", "POST"])
 def log_issue():
@@ -284,77 +296,46 @@ def log_issue():
     return render_template("log_issue.html")
 
 # ================= VIEW ISSUES =================
+from datetime import datetime
+
 @app.route("/view_issues")
 def view_issues():
     if "user" not in session:
         return redirect(url_for("login"))
 
+    filter_type = request.args.get("filter", "all")
+
     db = get_db()
     cur = db.cursor()
 
-    search = request.args.get("search")
-    filter_type = request.args.get("filter")
+    today = datetime.now().strftime("%Y-%m-%d")
+    current_month = datetime.now().strftime("%m")
+    current_year = datetime.now().strftime("%Y")
 
-    query = "SELECT * FROM issues WHERE 1=1"
-    params = []
-
-    # 🔎 Search
-    if search:
-        query += " AND (title LIKE ? OR description LIKE ?)"
-        params.extend([f"%{search}%", f"%{search}%"])
-
-    # 📅 Filters
     if filter_type == "today":
-        query += " AND date(date_reported) = date('now')"
-
-    elif filter_type == "week":
-        query += " AND strftime('%Y-%W', date_reported) = strftime('%Y-%W', 'now')"
-
+        cur.execute("SELECT * FROM issues WHERE date_reported = ?", (today,))
     elif filter_type == "month":
-        query += " AND strftime('%Y-%m', date_reported) = strftime('%Y-%m', 'now')"
+        cur.execute(
+            "SELECT * FROM issues WHERE strftime('%m', date_reported)=?",
+            (current_month,)
+        )
+    elif filter_type == "year":
+        cur.execute(
+            "SELECT * FROM issues WHERE strftime('%Y', date_reported)=?",
+            (current_year,)
+        )
+    else:
+        cur.execute("SELECT * FROM issues")
 
-    elif filter_type == "open":
-        query += " AND status='Open'"
-
-    query += " ORDER BY date_reported DESC"
-
-    cur.execute(query, params)
     issues = cur.fetchall()
-
-    # Convert to list for SLA editing
-    issues = [dict(issue) for issue in issues]
-
-    # ⏰ SLA Calculation
-    for issue in issues:
-        if issue["status"] == "Open":
-            opened_time = datetime.strptime(issue["date_reported"], "%Y-%m-%d %H:%M")
-            issue["sla_hours"] = int((datetime.now() - opened_time).total_seconds() / 3600)
-        else:
-            issue["sla_hours"] = "-"
-
-    # 📊 Progress bar based on filtered results
-    open_count = sum(1 for i in issues if i["status"] == "Open")
-    closed_count = sum(1 for i in issues if i["status"] == "Closed")
-
-    total = open_count + closed_count
-    open_percent = int((open_count / total) * 100) if total else 0
-    closed_percent = 100 - open_percent if total else 0
-
-    # 👨‍💻 Technicians
-    cur.execute("SELECT username FROM users WHERE role='Technician'")
-    technicians = cur.fetchall()
 
     db.close()
 
     return render_template(
         "view_issues.html",
         issues=issues,
-        technicians=technicians,
-        open_percent=open_percent,
-        closed_percent=closed_percent,
-        current_filter=filter_type
+        filter_type=filter_type
     )
-
 # ================= ASSIGN ISSUE =================
 
 @app.route("/assign_issue/<int:issue_id>", methods=["POST"])
