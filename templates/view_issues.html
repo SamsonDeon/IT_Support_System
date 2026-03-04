@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>View Issues</title>
+    <title>Issues</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <div class="navbar">
-    <div>
-        <strong>IT Enterprise Support</strong>
-    </div>
+    <strong>IT Enterprise Support</strong>
     <div>
         <a href="/dashboard">Dashboard</a>
         <a href="/log_issue">Log Issue</a>
@@ -21,74 +19,47 @@
 
     <h2>All Logged Issues</h2>
 
-    <!-- Search + Filters -->
-    <div class="top-controls">
-
-        <form method="GET" action="/view_issues" class="search-form">
-            <input type="text" name="search" placeholder="Search issues...">
-        </form>
-
-        <div>
-            <a href="/view_issues" class="btn-light">All</a>
-            <a href="/view_issues?status=Open" class="btn-light">Open</a>
-            <a href="/view_issues?status=Closed" class="btn-light">Closed</a>
-        </div>
-
-    </div>
-
-    <!-- Issues Table -->
     <table class="table">
-
         <tr>
             <th>ID</th>
             <th>Title</th>
             <th>Description</th>
             <th>Status</th>
-            <th>Assigned To</th>
+            <th>Assigned</th>
             <th>Date</th>
             <th>Action</th>
         </tr>
 
         {% for issue in issues %}
-        <tr class="{% if issue.status == 'Closed' %}row-closed{% endif %}">
+        <tr>
             <td>{{ issue.id }}</td>
             <td>{{ issue.title }}</td>
-
-            <!-- DESCRIPTION COLUMN -->
-            <td style="max-width: 250px;">
-                {{ issue.description }}
-            </td>
+            <td>{{ issue.description }}</td>
 
             <td>
                 {% if issue.status == "Open" %}
-                    <span class="badge badge-open">Open</span>
+                <span class="badge badge-open">Open</span>
                 {% else %}
-                    <span class="badge badge-closed">Closed</span>
+                <span class="badge badge-closed">Closed</span>
                 {% endif %}
             </td>
 
-            <td>
-                {{ issue.assigned_to or "Unassigned" }}
-            </td>
-
-            <td>
-                {{ issue.date_reported }}
-            </td>
+            <td>{{ issue.assigned_to or "Unassigned" }}</td>
+            <td>{{ issue.date_reported }}</td>
 
             <td>
                 {% if issue.status == "Open" %}
                 <form method="POST" action="{{ url_for('close_issue', issue_id=issue.id) }}">
-                    <button type="submit" class="btn btn-success">Close</button>
+                    <button class="btn btn-success">Close</button>
                 </form>
                 {% else %}
                 <form method="POST" action="{{ url_for('reopen_issue', issue_id=issue.id) }}">
-                    <button type="submit" class="btn btn-warning">Reopen</button>
+                    <button class="btn btn-warning">Reopen</button>
                 </form>
                 {% endif %}
             </td>
         </tr>
         {% endfor %}
-
     </table>
 
 </div>

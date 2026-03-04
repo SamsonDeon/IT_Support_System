@@ -1,75 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IT Enterprise Dashboard</title>
+    <title>Enterprise Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-<div class="sidebar">
-    <h2>IT Enterprise</h2>
-    <a href="/dashboard">Dashboard</a>
-    <a href="/log_issue">Log Issue</a>
-    <a href="/view_issues">View Issues</a>
-    <a href="/audit_logs">Audit Trail</a>
-    {% if session['role'] == 'Admin' %}
-        <a href="/manage_users">Manage Users</a>
-    {% endif %}
-    <a href="/logout" class="logout">Logout</a>
+<div class="navbar">
+    <strong>IT Enterprise Support</strong>
+    <div>
+        {{ session['user'] }}
+        <a href="/dashboard">Dashboard</a>
+        <a href="/log_issue">Log Issue</a>
+        <a href="/view_issues">Issues</a>
+        <a href="/audit_logs">Audit</a>
+        <a href="/logout">Logout</a>
+    </div>
 </div>
 
-<div class="main-content">
+<div class="hero">
+    <h1>Welcome, {{ session['user'] }}</h1>
+    <p>Enterprise IT Support Analytics Overview</p>
+</div>
 
-    <div class="topbar">
-        <h2>Dashboard Overview</h2>
-        <div class="user-info">
-            Logged in as <strong>{{ session['user'] }}</strong>
-        </div>
-    </div>
+<div class="container">
 
-    <div class="stats-container">
-        <div class="stat-card total">
+    <div class="stats">
+        <div class="card">
             <h3>Total Issues</h3>
-            <p>{{ total }}</p>
+            <span class="total">{{ total }}</span>
         </div>
 
-        <div class="stat-card open">
+        <div class="card">
             <h3>Open Issues</h3>
-            <p>{{ pending }}</p>
+            <span class="pending">{{ pending }}</span>
         </div>
 
-        <div class="stat-card closed">
+        <div class="card">
             <h3>Closed Issues</h3>
-            <p>{{ solved }}</p>
+            <span class="solved">{{ solved }}</span>
         </div>
     </div>
 
-    <div class="chart-box">
+    <div class="chart-container">
         <canvas id="issueChart"></canvas>
     </div>
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('issueChart');
-
-new Chart(ctx, {
+new Chart(document.getElementById('issueChart'), {
     type: 'doughnut',
     data: {
-        labels: ['Open Issues', 'Closed Issues'],
+        labels: ['Open', 'Closed'],
         datasets: [{
             data: [{{ pending }}, {{ solved }}],
-            backgroundColor: ['#ff4d4d', '#28a745']
+            backgroundColor: ['#f39c12', '#2ecc71']
         }]
     },
     options: {
         responsive: true,
-        plugins: {
-            legend: {
-                position: 'bottom'
-            }
-        }
+        maintainAspectRatio: false
     }
 });
 </script>
