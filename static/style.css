@@ -433,3 +433,49 @@ body {
     border-radius: 5px;
     margin-bottom: 15px;
 }
+/* ================= NAVBAR ================= */
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px;
+    background: #1f2937;
+    color: white;
+}
+
+.nav-right {
+    display: flex;
+    gap: 15px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+
+    .nav-right {
+        display: none;
+        flex-direction: column;
+        background: #111827;
+        position: absolute;
+        right: 20px;
+        top: 60px;
+        padding: 20px;
+        border-radius: 10px;
+    }
+
+    .nav-right.active {
+        display: flex;
+    }
+
+    .menu-toggle {
+        display: block;
+        cursor: pointer;
+        font-size: 22px;
+    }
+}
+
+@media (min-width: 769px) {
+    .menu-toggle {
+        display: none;
+    }
+}

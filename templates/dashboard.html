@@ -4,13 +4,17 @@
     <title>Enterprise Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <a href="{{ url_for('manage_users') }}">Manage Users</a>
+    <a href="{{ url_for('audit_logs') }}">Audit Logs</a>
+    <a href="{{ url_for('signup') }}">Create User</a>
 </head>
 <body>
 
 <div class="navbar">
     <strong>IT Enterprise Support</strong>
 
-    <div class="nav-right">
+    <div class="menu-toggle" onclick="toggleMenu()">☰</div>
+    <div class="nav-right" id="navMenu">
 
         <!-- Dark Mode -->
         <button class="btn btn-primary" onclick="toggleDark()">🌙</button>
@@ -181,6 +185,9 @@ function toggleDark(){
 
 function toggleProfile(){
     document.querySelector('.profile').classList.toggle('active');
+}
+function toggleMenu(){
+    document.getElementById("navMenu").classList.toggle("active");
 }
 </script>
 

@@ -2,84 +2,83 @@
 <html>
 <head>
     <title>View Issues</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
-<h2>All Issues</h2>
+<div class="navbar">
+    <strong>IT Enterprise Support</strong>
+    <div class="nav-right">
+        <a href="/dashboard" class="btn btn-primary">Dashboard</a>
+        <a href="/log_issue" class="btn btn-success">Log Issue</a>
+        <a href="/export_excel" class="btn btn-warning">Export Excel</a>
+        <a href="/logout" class="btn btn-danger">Logout</a>
+    </div>
+</div>
 
-<a href="/dashboard">🏠 Dashboard</a>
-<a href="/export_excel">📤 Export to Excel</a>
+<div class="container">
 
-<hr>
+    <h2>All Issues</h2>
 
-<input type="text" id="searchInput" placeholder="Search issues..." style="width:300px; padding:8px;">
+    <!-- FILTERS -->
+    <div style="margin-bottom:20px;">
+        <a href="/view_issues?filter=all" class="btn">All</a>
+        <a href="/view_issues?filter=today" class="btn">Today</a>
+        <a href="/view_issues?filter=month" class="btn">This Month</a>
+        <a href="/view_issues?filter=year" class="btn">This Year</a>
+    </div>
 
-<hr>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Assigned</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
 
-<canvas id="statusChart" width="400" height="200"></canvas>
+            <tbody>
+                {% for issue in issues %}
+                <tr>
+                    <td>{{ issue["id"] }}</td>
+                    <td>{{ issue["title"] }}</td>
+                    <td>{{ issue["category"] }}</td>
 
-<script>
-new Chart(document.getElementById("statusChart"), {
-    type: 'pie',
-    data: {
-        labels: ['Open', 'Closed'],
-        datasets: [{
-            data: [{{ open_count }}, {{ closed_count }}],
-            backgroundColor: ['orange', 'green']
-        }]
-    }
-});
-</script>
+                    <td>
+                        {% if issue["status"] == "Open" %}
+                            <span class="badge open">Open</span>
+                        {% else %}
+                            <span class="badge closed">Closed</span>
+                        {% endif %}
+                    </td>
 
-<hr>
+                    <td>{{ issue["assigned_to"] }}</td>
+                    <td>{{ issue["date_reported"] }}</td>
 
-<table border="1" width="100%">
-    <tr>
-        <th>ID</th>
-        <th>Title</th>
-        <th>Description</th>
-        <th>Status</th>
-        <th>Date</th>
-    </tr>
+                    <td>
+                        {% if issue["status"] == "Open" %}
+                        <form action="/close_issue/{{ issue['id'] }}" method="POST">
+                            <button class="btn btn-success">Close</button>
+                        </form>
+                        {% else %}
+                        <form action="/reopen_issue/{{ issue['id'] }}" method="POST">
+                            <button class="btn btn-warning">Reopen</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    {% for issue in issues %}
-    <tr>
-        <td>{{ issue["id"] }}</td>
-        <td>{{ issue["title"] }}</td>
-        <td>{{ issue["description"] }}</td>
-        <td>
-            <a href="/update_status/{{ issue['id'] }}">
-                {% if issue["status"] == "Open" %}
-                    <span style="color:orange;">Open</span>
-                {% else %}
-                    <span style="color:green;">Closed</span>
-                {% endif %}
-            </a>
-        </td>
-        <td>{{ issue["date"] }}</td>
-    </tr>
-    {% endfor %}
-</table>
-
-<script>
-document.getElementById("searchInput").addEventListener("keyup", function() {
-    let value = this.value.toLowerCase();
-    let rows = document.querySelectorAll("table tr");
-
-    rows.forEach((row, index) => {
-        if(index === 0) return;
-        row.style.display = row.innerText.toLowerCase().includes(value)
-            ? "" : "none";
-    });
-});
-</script>
-
-<script>
-setTimeout(function(){
-   location.reload();
-}, 30000);
-</script>
+</div>
 
 </body>
 </html>
