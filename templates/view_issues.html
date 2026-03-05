@@ -61,7 +61,7 @@
 </tr>
 
 {% for issue in issues %}
-<tr>
+<tr {% if issue.sla_breach %}style="background:#ffdddd;"{% endif %}>
     <td>{{ issue.id }}</td>
 
     <td>{{ issue.title }}</td>

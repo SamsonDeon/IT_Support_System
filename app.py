@@ -217,8 +217,15 @@ def view_issues():
 
             issue["sla_hours"] = round(sla.total_seconds() / 3600, 2)
 
+            # NEW: SLA BREACH DETECTION (24 hours)
+            if issue["status"] == "Open" and issue["sla_hours"] > 24:
+                issue["sla_breach"] = True
+            else:
+                issue["sla_breach"] = False
+
         except:
             issue["sla_hours"] = 0
+            issue["sla_breach"] = False
 
         issues_with_sla.append(issue)
 
