@@ -1,29 +1,27 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from openpyxl import Workbook
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import io
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_key")
 
-DATABASE = "database.db"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 # ================= DATABASE =================
 def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 
 # ================= AUDIT LOG =================
 def log_action(action, target_user=None):
+
     if "user" not in session:
         return
 
@@ -32,15 +30,16 @@ def log_action(action, target_user=None):
 
     cur.execute("""
         INSERT INTO audit_logs (action, performed_by, target_user, timestamp)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s,%s,%s,%s)
     """, (
         action,
         session.get("user"),
         target_user,
-        datetime.now().strftime("%Y-%m-%d %H:%M")
+        datetime.now()
     ))
 
     db.commit()
+    cur.close()
     db.close()
 
 
@@ -54,10 +53,12 @@ def login():
         password = request.form.get("password")
 
         db = get_db()
-        cur = db.cursor()
+        cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        cur.execute("SELECT * FROM users WHERE username=?", (username,))
+        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
         user = cur.fetchone()
+
+        cur.close()
         db.close()
 
         if user and check_password_hash(user["password"], password):
@@ -105,11 +106,12 @@ def dashboard():
 
         cur.execute("""
         SELECT COUNT(*) FROM issues
-        WHERE strftime('%m', date_reported) = ?
-        """, (f"{month:02}",))
+        WHERE EXTRACT(MONTH FROM date_reported) = %s
+        """, (month,))
 
         monthly_data.append(cur.fetchone()[0])
 
+    cur.close()
     db.close()
 
     percentage = 0
@@ -139,17 +141,18 @@ def log_issue():
         description = request.form.get("description")
         source = request.form.get("source")
 
-        date_reported = datetime.now().strftime("%Y-%m-%d %H:%M")
+        date_reported = datetime.now()
 
         db = get_db()
         cur = db.cursor()
 
         cur.execute("""
         INSERT INTO issues (title, description, source, category, status, date_reported)
-        VALUES (?, ?, ?, ?, 'Open', ?)
+        VALUES (%s,%s,%s,%s,'Open',%s)
         """, (title, description, source, "General", date_reported))
 
         db.commit()
+        cur.close()
         db.close()
 
         log_action("Logged Issue")
@@ -170,26 +173,24 @@ def view_issues():
     filter_type = request.args.get("filter", "all")
 
     db = get_db()
-    cur = db.cursor()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     query = "SELECT * FROM issues"
     conditions = []
     params = []
 
-    # ================= SEARCH =================
     if search:
-        conditions.append("title LIKE ?")
+        conditions.append("title ILIKE %s")
         params.append(f"%{search}%")
 
-    # ================= DATE FILTER =================
     if filter_type == "today":
-        conditions.append("date(date_reported) = date('now')")
+        conditions.append("DATE(date_reported) = CURRENT_DATE")
 
     elif filter_type == "month":
-        conditions.append("strftime('%Y-%m', date_reported) = strftime('%Y-%m','now')")
+        conditions.append("DATE_TRUNC('month', date_reported) = DATE_TRUNC('month', CURRENT_DATE)")
 
     elif filter_type == "year":
-        conditions.append("strftime('%Y', date_reported) = strftime('%Y','now')")
+        conditions.append("DATE_TRUNC('year', date_reported) = DATE_TRUNC('year', CURRENT_DATE)")
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
@@ -199,7 +200,6 @@ def view_issues():
     cur.execute(query, params)
     issues = cur.fetchall()
 
-    # ================= SLA CALCULATION =================
     issues_with_sla = []
 
     for issue in issues:
@@ -207,17 +207,17 @@ def view_issues():
         issue = dict(issue)
 
         try:
-            reported_time = datetime.strptime(issue["date_reported"], "%Y-%m-%d %H:%M")
+
+            reported_time = issue["date_reported"]
 
             if issue.get("status") == "Closed" and issue.get("date_closed"):
-                closed_time = datetime.strptime(issue["date_closed"], "%Y-%m-%d %H:%M")
+                closed_time = issue["date_closed"]
                 sla = closed_time - reported_time
             else:
                 sla = datetime.now() - reported_time
 
             issue["sla_hours"] = round(sla.total_seconds() / 3600, 2)
 
-            # NEW: SLA BREACH DETECTION (24 hours)
             if issue["status"] == "Open" and issue["sla_hours"] > 24:
                 issue["sla_breach"] = True
             else:
@@ -229,7 +229,6 @@ def view_issues():
 
         issues_with_sla.append(issue)
 
-    # ================= TECHNICIANS =================
     cur.execute("SELECT username FROM users WHERE role='Technician'")
     technicians = cur.fetchall()
 
@@ -240,6 +239,7 @@ def view_issues():
     open_percent = round((open_count/total)*100,2) if total>0 else 0
     closed_percent = round((closed_count/total)*100,2) if total>0 else 0
 
+    cur.close()
     db.close()
 
     return render_template(
@@ -249,6 +249,7 @@ def view_issues():
         open_percent=open_percent,
         closed_percent=closed_percent
     )
+
 
 # ================= ASSIGN ISSUE =================
 @app.route("/assign_issue/<int:issue_id>", methods=["POST"])
@@ -264,11 +265,12 @@ def assign_issue(issue_id):
 
     cur.execute("""
     UPDATE issues
-    SET assigned_to=?
-    WHERE id=?
+    SET assigned_to=%s
+    WHERE id=%s
     """,(technician, issue_id))
 
     db.commit()
+    cur.close()
     db.close()
 
     log_action("Assigned Issue", technician)
@@ -283,15 +285,16 @@ def close_issue(issue_id):
     db = get_db()
     cur = db.cursor()
 
-    date_closed = datetime.now().strftime("%Y-%m-%d %H:%M")
+    date_closed = datetime.now()
 
     cur.execute("""
     UPDATE issues
-    SET status='Closed', date_closed=?
-    WHERE id=?
+    SET status='Closed', date_closed=%s
+    WHERE id=%s
     """,(date_closed, issue_id))
 
     db.commit()
+    cur.close()
     db.close()
 
     log_action("Closed Issue")
@@ -309,10 +312,11 @@ def reopen_issue(issue_id):
     cur.execute("""
     UPDATE issues
     SET status='Open', date_closed=NULL
-    WHERE id=?
+    WHERE id=%s
     """,(issue_id,))
 
     db.commit()
+    cur.close()
     db.close()
 
     log_action("Reopened Issue")
@@ -320,83 +324,17 @@ def reopen_issue(issue_id):
     return redirect(url_for("view_issues"))
 
 
-# ================= MANAGE USERS =================
-@app.route("/manage_users")
-def manage_users():
-
-    if session.get("role") != "Admin":
-        return redirect(url_for("dashboard"))
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("SELECT username, role FROM users")
-    users = cur.fetchall()
-
-    db.close()
-
-    return render_template("manage_users.html", users=users)
-
-
-# ================= SIGNUP =================
-@app.route("/signup", methods=["GET","POST"])
-def signup():
-
-    if session.get("role") != "Admin":
-        return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-
-        username = request.form.get("username")
-        password = generate_password_hash(request.form.get("password"))
-        role = request.form.get("role")
-
-        db = get_db()
-        cur = db.cursor()
-
-        cur.execute("""
-        INSERT INTO users (username,password,role)
-        VALUES (?,?,?)
-        """,(username,password,role))
-
-        db.commit()
-        db.close()
-
-        log_action("Created User", username)
-
-        return redirect(url_for("manage_users"))
-
-    return render_template("signup.html")
-
-
-# ================= AUDIT LOGS =================
-@app.route("/audit_logs")
-def audit_logs():
-
-    if session.get("role") != "Admin":
-        return redirect(url_for("dashboard"))
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("SELECT * FROM audit_logs ORDER BY id DESC")
-    logs = cur.fetchall()
-
-    db.close()
-
-    return render_template("audit_logs.html", logs=logs)
-
-
 # ================= EXPORT =================
 @app.route("/export_excel")
 def export_excel():
 
     db = get_db()
-    cur = db.cursor()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     cur.execute("SELECT * FROM issues")
     issues = cur.fetchall()
 
+    cur.close()
     db.close()
 
     wb = Workbook()
@@ -411,7 +349,7 @@ def export_excel():
             issue["category"],
             issue["status"],
             issue["assigned_to"],
-            issue["date_reported"]
+            str(issue["date_reported"])
         ])
 
     stream = io.BytesIO()
@@ -426,5 +364,69 @@ def export_excel():
     )
 
 
+# ================= AUTO CREATE TABLES =================
+def init_db():
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS issues (
+        id SERIAL PRIMARY KEY,
+        title TEXT,
+        description TEXT,
+        source TEXT,
+        category TEXT,
+        status TEXT,
+        assigned_to TEXT,
+        date_reported TIMESTAMP,
+        date_closed TIMESTAMP
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        action TEXT,
+        performed_by TEXT,
+        target_user TEXT,
+        timestamp TIMESTAMP
+    )
+    """)
+
+    # ================= DEFAULT ADMIN =================
+    cur.execute("SELECT * FROM users WHERE username='admin'")
+    admin = cur.fetchone()
+
+    if not admin:
+
+        cur.execute("""
+        INSERT INTO users (username,password,role)
+        VALUES (%s,%s,%s)
+        """, (
+            "admin",
+            generate_password_hash("admin123"),
+            "Admin"
+        ))
+
+        print("Default admin created: admin / admin123")
+
+    db.commit()
+    cur.close()
+    db.close()
+
+
 if __name__ == "__main__":
+
+    init_db()
+
     app.run(debug=True)
