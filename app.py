@@ -10,8 +10,6 @@ from email.mime.multipart import MIMEMultipart
 import io
 
 app = Flask(__name__)
-
-# ================= SECURITY =================
 app.secret_key = os.environ.get("SECRET_KEY", "dev_fallback_key")
 
 DATABASE = "database.db"
@@ -46,48 +44,29 @@ def log_action(action, target_user=None):
     db.close()
 
 
-# ================= EMAIL CONFIG =================
-EMAIL_ADDRESS = os.environ.get("EMAIL_USER")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASS")
-
-
-def send_email(subject, body):
-    if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
-        return
-
-    message = MIMEMultipart()
-    message["From"] = EMAIL_ADDRESS
-    message["To"] = EMAIL_ADDRESS
-    message["Subject"] = subject
-    message.attach(MIMEText(body, "plain"))
-
-    try:
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_ADDRESS, EMAIL_ADDRESS, message.as_string())
-        server.quit()
-    except Exception as e:
-        print("Email failed:", e)
-
-
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
+
     if request.method == "POST":
+
         username = request.form.get("username")
         password = request.form.get("password")
 
         db = get_db()
         cur = db.cursor()
+
         cur.execute("SELECT * FROM users WHERE username=?", (username,))
         user = cur.fetchone()
         db.close()
 
         if user and check_password_hash(user["password"], password):
+
             session["user"] = user["username"]
             session["role"] = user["role"]
+
             return redirect(url_for("dashboard"))
+
         else:
             flash("Invalid username or password")
 
@@ -104,6 +83,7 @@ def logout():
 # ================= DASHBOARD =================
 @app.route("/dashboard")
 def dashboard():
+
     if "user" not in session:
         return redirect(url_for("login"))
 
@@ -119,18 +99,19 @@ def dashboard():
     cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
     solved = cur.fetchone()[0]
 
-    # Monthly performance
     monthly_data = []
+
     for month in range(1, 13):
+
         cur.execute("""
-            SELECT COUNT(*) FROM issues
-            WHERE strftime('%m', date_reported) = ?
+        SELECT COUNT(*) FROM issues
+        WHERE strftime('%m', date_reported) = ?
         """, (f"{month:02}",))
+
         monthly_data.append(cur.fetchone()[0])
 
     db.close()
 
-    # 🔥 Calculate percentage solved
     percentage = 0
     if total > 0:
         percentage = round((solved / total) * 100, 2)
@@ -148,10 +129,12 @@ def dashboard():
 # ================= LOG ISSUE =================
 @app.route("/log_issue", methods=["GET", "POST"])
 def log_issue():
+
     if "user" not in session:
         return redirect(url_for("login"))
 
     if request.method == "POST":
+
         title = request.form.get("title")
         description = request.form.get("description")
         source = request.form.get("source")
@@ -160,14 +143,15 @@ def log_issue():
 
         db = get_db()
         cur = db.cursor()
+
         cur.execute("""
-            INSERT INTO issues (title, description, source, category, status, date_reported)
-            VALUES (?, ?, ?, ?, 'Open', ?)
+        INSERT INTO issues (title, description, source, category, status, date_reported)
+        VALUES (?, ?, ?, ?, 'Open', ?)
         """, (title, description, source, "General", date_reported))
+
         db.commit()
         db.close()
 
-        send_email("New Issue Logged", f"Issue: {title}")
         log_action("Logged Issue")
 
         return redirect(url_for("view_issues"))
@@ -178,6 +162,7 @@ def log_issue():
 # ================= VIEW ISSUES =================
 @app.route("/view_issues")
 def view_issues():
+
     if "user" not in session:
         return redirect(url_for("login"))
 
@@ -187,7 +172,7 @@ def view_issues():
     db = get_db()
     cur = db.cursor()
 
-    base_query = "SELECT * FROM issues"
+    query = "SELECT * FROM issues"
     conditions = []
     params = []
 
@@ -195,39 +180,23 @@ def view_issues():
         conditions.append("title LIKE ?")
         params.append(f"%{search}%")
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    current_month = datetime.now().strftime("%m")
-    current_year = datetime.now().strftime("%Y")
-
-    if filter_type == "today":
-        conditions.append("date(date_reported)=?")
-        params.append(today)
-    elif filter_type == "month":
-        conditions.append("strftime('%m', date_reported)=?")
-        params.append(current_month)
-    elif filter_type == "year":
-        conditions.append("strftime('%Y', date_reported)=?")
-        params.append(current_year)
-
     if conditions:
-        base_query += " WHERE " + " AND ".join(conditions)
+        query += " WHERE " + " AND ".join(conditions)
 
-    base_query += " ORDER BY id DESC"
+    query += " ORDER BY id DESC"
 
-    cur.execute(base_query, params)
+    cur.execute(query, params)
     issues = cur.fetchall()
 
-    # technicians for assign dropdown
     cur.execute("SELECT username FROM users WHERE role='Technician'")
     technicians = cur.fetchall()
 
-    # calculate percentages
     total = len(issues)
     open_count = len([i for i in issues if i["status"] == "Open"])
     closed_count = len([i for i in issues if i["status"] == "Closed"])
 
-    open_percent = round((open_count / total) * 100, 2) if total > 0 else 0
-    closed_percent = round((closed_count / total) * 100, 2) if total > 0 else 0
+    open_percent = round((open_count/total)*100,2) if total>0 else 0
+    closed_percent = round((closed_count/total)*100,2) if total>0 else 0
 
     db.close()
 
@@ -239,11 +208,36 @@ def view_issues():
         closed_percent=closed_percent
     )
 
+
+# ================= ASSIGN ISSUE =================
+@app.route("/assign_issue/<int:issue_id>", methods=["POST"])
+def assign_issue(issue_id):
+
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    technician = request.form.get("technician")
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+    UPDATE issues
+    SET assigned_to=?
+    WHERE id=?
+    """,(technician, issue_id))
+
+    db.commit()
+    db.close()
+
+    log_action("Assigned Issue", technician)
+
+    return redirect(url_for("view_issues"))
+
+
 # ================= CLOSE ISSUE =================
 @app.route("/close_issue/<int:issue_id>", methods=["POST"])
 def close_issue(issue_id):
-    if "user" not in session:
-        return redirect(url_for("login"))
 
     db = get_db()
     cur = db.cursor()
@@ -251,15 +245,14 @@ def close_issue(issue_id):
     date_closed = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     cur.execute("""
-        UPDATE issues
-        SET status='Closed', date_closed=?
-        WHERE id=?
-    """, (date_closed, issue_id))
+    UPDATE issues
+    SET status='Closed', date_closed=?
+    WHERE id=?
+    """,(date_closed, issue_id))
 
     db.commit()
     db.close()
 
-    send_email("Issue Closed", f"Issue {issue_id} closed.")
     log_action("Closed Issue")
 
     return redirect(url_for("view_issues"))
@@ -268,43 +261,107 @@ def close_issue(issue_id):
 # ================= REOPEN ISSUE =================
 @app.route("/reopen_issue/<int:issue_id>", methods=["POST"])
 def reopen_issue(issue_id):
-    if "user" not in session:
-        return redirect(url_for("login"))
 
     db = get_db()
     cur = db.cursor()
 
     cur.execute("""
-        UPDATE issues
-        SET status='Open', date_closed=NULL
-        WHERE id=?
-    """, (issue_id,))
+    UPDATE issues
+    SET status='Open', date_closed=NULL
+    WHERE id=?
+    """,(issue_id,))
 
     db.commit()
     db.close()
 
     log_action("Reopened Issue")
+
     return redirect(url_for("view_issues"))
 
 
-# ================= EXPORT EXCEL =================
-@app.route("/export_excel")
-def export_excel():
-    if "user" not in session:
-        return redirect(url_for("login"))
+# ================= MANAGE USERS =================
+@app.route("/manage_users")
+def manage_users():
+
+    if session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
 
     db = get_db()
     cur = db.cursor()
+
+    cur.execute("SELECT username, role FROM users")
+    users = cur.fetchall()
+
+    db.close()
+
+    return render_template("manage_users.html", users=users)
+
+
+# ================= SIGNUP =================
+@app.route("/signup", methods=["GET","POST"])
+def signup():
+
+    if session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+
+        username = request.form.get("username")
+        password = generate_password_hash(request.form.get("password"))
+        role = request.form.get("role")
+
+        db = get_db()
+        cur = db.cursor()
+
+        cur.execute("""
+        INSERT INTO users (username,password,role)
+        VALUES (?,?,?)
+        """,(username,password,role))
+
+        db.commit()
+        db.close()
+
+        log_action("Created User", username)
+
+        return redirect(url_for("manage_users"))
+
+    return render_template("signup.html")
+
+
+# ================= AUDIT LOGS =================
+@app.route("/audit_logs")
+def audit_logs():
+
+    if session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT * FROM audit_logs ORDER BY id DESC")
+    logs = cur.fetchall()
+
+    db.close()
+
+    return render_template("audit_logs.html", logs=logs)
+
+
+# ================= EXPORT =================
+@app.route("/export_excel")
+def export_excel():
+
+    db = get_db()
+    cur = db.cursor()
+
     cur.execute("SELECT * FROM issues")
     issues = cur.fetchall()
+
     db.close()
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "IT Issues"
 
-    headers = ["ID", "Title", "Category", "Status", "Assigned To", "Date Reported"]
-    ws.append(headers)
+    ws.append(["ID","Title","Category","Status","Assigned To","Date Reported"])
 
     for issue in issues:
         ws.append([
@@ -316,12 +373,12 @@ def export_excel():
             issue["date_reported"]
         ])
 
-    file_stream = io.BytesIO()
-    wb.save(file_stream)
-    file_stream.seek(0)
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
 
     return send_file(
-        file_stream,
+        stream,
         as_attachment=True,
         download_name="IT_Issues_Report.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -329,4 +386,4 @@ def export_excel():
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
