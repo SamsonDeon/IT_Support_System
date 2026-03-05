@@ -4,14 +4,16 @@
     <title>Log Issue</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
-    <div class="navbar">
+
+<div class="navbar">
     <div class="nav-left">
         <strong>IT Enterprise Support</strong>
     </div>
 
     <div class="nav-right">
-        Logged in as: {{ session['user'] }}
+        Logged in as: <b>{{ session['user'] }}</b>
         <a href="/dashboard">Dashboard</a>
         <a href="/log_issue">Log Issue</a>
         <a href="/view_issues">Issues</a>
@@ -20,28 +22,38 @@
 </div>
 
 <div class="container">
-    <h2>Log IT Issue</h2>
 
-    <form method="POST">
+<div class="card">
 
-        <label>Issue Title</label>
-        <input type="text" name="title" required>
+<h2>Log IT Issue</h2>
+<p style="color:gray;">Report any IT problem experienced by staff.</p>
 
-        <label>Description</label>
-        <textarea name="description" required></textarea>
+<form method="POST">
 
-        <label>Source</label>
-        <select name="source">
-            <option>WhatsApp</option>
-            <option>Phone Call</option>
-            <option>Email</option>
-        </select>
+<label>Issue Title</label>
+<input type="text" name="title" placeholder="Enter issue title" required>
 
-        <button type="submit">Submit Issue</button>
-    </form>
+<label>Description</label>
+<textarea name="description" placeholder="Describe the problem clearly..." required></textarea>
 
-    <br>
-    <a href="/dashboard">Back to Dashboard</a>
+<label>Source</label>
+<select name="source">
+    <option>WhatsApp</option>
+    <option>Phone Call</option>
+    <option>Email</option>
+</select>
+
+<button type="submit" class="btn btn-primary">Submit Issue</button>
+
+</form>
+
+<div style="margin-top:20px;">
+<a href="/dashboard" class="btn">⬅ Back to Dashboard</a>
 </div>
+
+</div>
+
+</div>
+
 </body>
 </html>
