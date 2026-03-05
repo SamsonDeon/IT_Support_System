@@ -188,12 +188,36 @@ def view_issues():
     cur.execute(query, params)
     issues = cur.fetchall()
 
+    # ================= SLA CALCULATION =================
+    issues_with_sla = []
+
+    for issue in issues:
+
+        issue = dict(issue)
+
+        try:
+            reported_time = datetime.strptime(issue["date_reported"], "%Y-%m-%d %H:%M")
+
+            if issue.get("status") == "Closed" and issue.get("date_closed"):
+                closed_time = datetime.strptime(issue["date_closed"], "%Y-%m-%d %H:%M")
+                sla = closed_time - reported_time
+            else:
+                sla = datetime.now() - reported_time
+
+            issue["sla_hours"] = round(sla.total_seconds() / 3600, 2)
+
+        except:
+            issue["sla_hours"] = 0
+
+        issues_with_sla.append(issue)
+
+    # ================= TECHNICIANS =================
     cur.execute("SELECT username FROM users WHERE role='Technician'")
     technicians = cur.fetchall()
 
-    total = len(issues)
-    open_count = len([i for i in issues if i["status"] == "Open"])
-    closed_count = len([i for i in issues if i["status"] == "Closed"])
+    total = len(issues_with_sla)
+    open_count = len([i for i in issues_with_sla if i["status"] == "Open"])
+    closed_count = len([i for i in issues_with_sla if i["status"] == "Closed"])
 
     open_percent = round((open_count/total)*100,2) if total>0 else 0
     closed_percent = round((closed_count/total)*100,2) if total>0 else 0
@@ -202,12 +226,11 @@ def view_issues():
 
     return render_template(
         "view_issues.html",
-        issues=issues,
+        issues=issues_with_sla,
         technicians=technicians,
         open_percent=open_percent,
         closed_percent=closed_percent
     )
-
 
 # ================= ASSIGN ISSUE =================
 @app.route("/assign_issue/<int:issue_id>", methods=["POST"])

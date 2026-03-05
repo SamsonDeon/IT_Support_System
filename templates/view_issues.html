@@ -52,6 +52,7 @@
 <tr>
     <th>ID</th>
     <th>Title</th>
+    <th>Description</th>
     <th>Status</th>
     <th>Assigned To</th>
     <th>Date Reported</th>
@@ -62,7 +63,10 @@
 {% for issue in issues %}
 <tr>
     <td>{{ issue.id }}</td>
+
     <td>{{ issue.title }}</td>
+
+    <td>{{ issue.description }}</td>
 
     <td>
         {% if issue.status == "Open" %}
@@ -91,6 +95,7 @@
     </td>
 
     <td>{{ issue.date_reported }}</td>
+
     <td>{{ issue.sla_hours }}</td>
 
     <td>
