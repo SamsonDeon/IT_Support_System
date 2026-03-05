@@ -176,9 +176,20 @@ def view_issues():
     conditions = []
     params = []
 
+    # ================= SEARCH =================
     if search:
         conditions.append("title LIKE ?")
         params.append(f"%{search}%")
+
+    # ================= DATE FILTER =================
+    if filter_type == "today":
+        conditions.append("date(date_reported) = date('now')")
+
+    elif filter_type == "month":
+        conditions.append("strftime('%Y-%m', date_reported) = strftime('%Y-%m','now')")
+
+    elif filter_type == "year":
+        conditions.append("strftime('%Y', date_reported) = strftime('%Y','now')")
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
