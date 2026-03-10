@@ -42,6 +42,39 @@ def log_action(action, target_user=None):
     cur.close()
     db.close()
 
+#==================SIGNUP =================
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+
+    if "user" not in session or session["role"] != "Admin":
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    cur = db.cursor()
+
+    if request.method == "POST":
+
+        username = request.form["username"]
+        password = request.form["password"]
+        role = request.form["role"]
+
+        try:
+            cur.execute(
+                "INSERT INTO users (username, password, role) VALUES (%s, %s, %s)",
+                (username, password, role)
+            )
+            db.commit()
+
+            flash("User created successfully")
+
+        except Exception as e:
+            db.rollback()
+            flash("User already exists")
+
+    db.close()
+
+    return render_template("signup.html")
 
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
