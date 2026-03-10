@@ -30,9 +30,31 @@
 
         <div class="profile" onclick="toggleProfile()">
 
-            👤 {{ session['user'] }}
+    👤 Account
 
             <div class="profile-menu">
+
+                <div style="padding:10px 15px;font-size:14px;color:gray;">
+                    Signed in as <b>{{ session['user'] }}</b>
+                </div>
+
+                <a href="/dashboard">Dashboard</a>
+
+                <a href="/log_issue">Log Issue</a>
+
+                <a href="/view_issues">Issues</a>
+
+                {% if session['role'] == "Admin" %}
+                <a href="/manage_users">Manage Users</a>
+                <a href="/audit_logs">Audit Logs</a>
+                <a href="/signup">Create User</a>
+                {% endif %}
+
+                <a href="/logout">Logout</a>
+
+            </div>
+
+        </div>
 
                 <a href="/dashboard">Dashboard</a>
 
