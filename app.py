@@ -20,27 +20,27 @@ def get_db():
 
 
 # ================= AUDIT LOG =================
-def log_action(action, target_user=None):
 
-    if "user" not in session:
-        return
+@app.route("/audit_logs")
+def audit_logs():
+
+    if "user" not in session or session["role"] != "Admin":
+        return redirect(url_for("dashboard"))
 
     db = get_db()
-    cur = db.cursor()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     cur.execute("""
-        INSERT INTO audit_logs (action, performed_by, target_user, timestamp)
-        VALUES (%s,%s,%s,%s)
-    """, (
-        action,
-        session.get("user"),
-        target_user,
-        datetime.now()
-    ))
+        SELECT * FROM audit_logs
+        ORDER BY id DESC
+    """)
 
-    db.commit()
+    logs = cur.fetchall()
+
     cur.close()
     db.close()
+
+    return render_template("audit_logs.html", logs=logs)
 
 #==================SIGNUP =================
 

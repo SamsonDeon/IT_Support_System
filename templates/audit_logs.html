@@ -1,39 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Audit Logs</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<title>Audit Logs</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <div class="navbar">
-    <strong>IT Enterprise Support</strong>
-    <div>
-        <a href="/dashboard">Dashboard</a>
-        <a href="/logout">Logout</a>
-    </div>
+<strong>IT Enterprise Support</strong>
+
+<div class="nav-right">
+<a href="/dashboard">Dashboard</a>
+<a href="/view_issues">Issues</a>
+<a href="/logout">Logout</a>
+</div>
 </div>
 
 <div class="container">
-    <h2>System Audit Trail</h2>
 
-    <table class="table">
-        <tr>
-            <th>Action</th>
-            <th>Performed By</th>
-            <th>Target</th>
-            <th>Time</th>
-        </tr>
+<h2>Audit Logs</h2>
 
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.action }}</td>
-            <td>{{ log.performed_by }}</td>
-            <td>{{ log.target_user }}</td>
-            <td>{{ log.timestamp }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+<table class="table">
+
+<tr>
+<th>ID</th>
+<th>Action</th>
+<th>Performed By</th>
+<th>Target User</th>
+<th>Timestamp</th>
+</tr>
+
+{% for log in logs %}
+<tr>
+<td>{{ log.id }}</td>
+<td>{{ log.action }}</td>
+<td>{{ log.performed_by }}</td>
+<td>{{ log.target_user }}</td>
+<td>{{ log.timestamp }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
 </div>
 
 </body>
