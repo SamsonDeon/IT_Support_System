@@ -76,6 +76,23 @@ def signup():
 
     return render_template("signup.html")
 
+# ================= MANAGE USERS =================
+@app.route("/manage_users")
+def manage_users():
+
+    if "user" not in session or session["role"] != "Admin":
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute("SELECT id, username, role FROM users ORDER BY username")
+    users = cur.fetchall()
+
+    cur.close()
+    db.close()
+
+    return render_template("manage_users.html", users=users)
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
