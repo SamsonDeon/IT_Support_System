@@ -221,6 +221,7 @@ def view_issues():
 
     search = request.args.get("search")
     filter_type = request.args.get("filter", "all")
+    status_filter = request.args.get("status")   # ← NEW (from dashboard pie chart)
 
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -232,6 +233,12 @@ def view_issues():
     if search:
         conditions.append("title ILIKE %s")
         params.append(f"%{search}%")
+
+    # ================= STATUS FILTER (NEW) =================
+    if status_filter:
+        conditions.append("status = %s")
+        params.append(status_filter)
+    # =======================================================
 
     if filter_type == "today":
         conditions.append("DATE(date_reported) = CURRENT_DATE")
@@ -299,7 +306,6 @@ def view_issues():
         open_percent=open_percent,
         closed_percent=closed_percent
     )
-
 
 # ================= ASSIGN ISSUE =================
 @app.route("/assign_issue/<int:issue_id>", methods=["POST"])
