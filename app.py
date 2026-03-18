@@ -14,9 +14,18 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 # ================= DATABASE =================
+from flask import g
+
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+    if "db" not in g:
+        g.db = psycopg2.connect(DATABASE_URL)
+    return g.db
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
 
 
 # ================= AUDIT LOG =================
@@ -141,25 +150,34 @@ def dashboard():
     db = get_db()
     cur = db.cursor()
 
-    cur.execute("SELECT COUNT(*) FROM issues")
-    total = cur.fetchone()[0]
+ # TOTAL, OPEN, CLOSED (ONE QUERY)
+    cur.execute("""
+    SELECT 
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status='Open') AS open,
+        COUNT(*) FILTER (WHERE status='Closed') AS closed
+    FROM issues
+    """)
 
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Open'")
-    pending = cur.fetchone()[0]
+    result = cur.fetchone()
+    total = result[0]
+    pending = result[1]
+    solved = result[2]
 
-    cur.execute("SELECT COUNT(*) FROM issues WHERE status='Closed'")
-    solved = cur.fetchone()[0]
+    # MONTHLY DATA (ONE QUERY)
+    cur.execute("""
+    SELECT EXTRACT(MONTH FROM date_reported) AS month, COUNT(*) 
+        FROM issues
+    GROUP BY month
+    """)
 
-    monthly_data = []
+    monthly_raw = cur.fetchall()
 
-    for month in range(1, 13):
-
-        cur.execute("""
-        SELECT COUNT(*) FROM issues
-        WHERE EXTRACT(MONTH FROM date_reported) = %s
-        """, (month,))
-
-        monthly_data.append(cur.fetchone()[0])
+    # fill missing months
+    monthly_data = [0] * 12
+    for row in monthly_raw:
+        month_index = int(row[0]) - 1
+        monthly_data[month_index] = row[1]
 
     cur.close()
     db.close()
