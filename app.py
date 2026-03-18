@@ -500,7 +500,8 @@ def init_db():
 
 
 # initialize database when app starts
-init_db()
+with app.app_context():
+    init_db()
 
 if __name__ == "__main__":
     app.run(debug=True)
