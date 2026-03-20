@@ -239,7 +239,8 @@ def view_issues():
 
     search = request.args.get("search")
     filter_type = request.args.get("filter", "all")
-    status_filter = request.args.get("status")   # ← NEW (from dashboard pie chart)
+    status_filter = request.args.get("status")   # existing
+    category_filter = request.args.get("category")  # ✅ NEW
 
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -252,11 +253,17 @@ def view_issues():
         conditions.append("title ILIKE %s")
         params.append(f"%{search}%")
 
-    # ================= STATUS FILTER (NEW) =================
+    # ================= STATUS FILTER =================
     if status_filter:
         conditions.append("status = %s")
         params.append(status_filter)
-    # =======================================================
+    # ================================================
+
+    # ================= CATEGORY FILTER (NEW) =================
+    if category_filter:
+        conditions.append("category = %s")
+        params.append(category_filter)
+    # ========================================================
 
     if filter_type == "today":
         conditions.append("DATE(date_reported) = CURRENT_DATE")

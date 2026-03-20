@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Enterprise Dashboard</title>
+    <title>Bellevue IT System</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
@@ -97,28 +97,37 @@
 
 <div class="stats">
 
-    <div class="card">
-
+    <!-- TOTAL -->
+    <div class="card" onclick="window.location.href='/view_issues'" style="cursor:pointer;">
         <h3>Total Issues</h3>
-
         <span class="total counter" data-target="{{ total }}">0</span>
-
     </div>
 
-    <div class="card">
-
+    <!-- OPEN -->
+    <div class="card" onclick="window.location.href='/view_issues?status=Open'" style="cursor:pointer;">
         <h3>Open Issues</h3>
-
         <span class="pending counter" data-target="{{ pending }}">0</span>
-
     </div>
 
-    <div class="card">
-
+    <!-- CLOSED -->
+    <div class="card" onclick="window.location.href='/view_issues?status=Closed'" style="cursor:pointer;">
         <h3>Closed Issues</h3>
-
         <span class="solved counter" data-target="{{ solved }}">0</span>
+    </div>
 
+</div>
+<div class="stats">
+
+    <div class="card" onclick="window.location.href='/view_issues?category=Hardware'" style="cursor:pointer;">
+        <h3>Hardware Issues</h3>
+    </div>
+
+    <div class="card" onclick="window.location.href='/view_issues?category=Software'" style="cursor:pointer;">
+        <h3>Software Issues</h3>
+    </div>
+
+    <div class="card" onclick="window.location.href='/view_issues?category=Network'" style="cursor:pointer;">
+        <h3>Network Issues</h3>
     </div>
 
 </div>
