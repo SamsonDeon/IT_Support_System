@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, g, jsonify
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
@@ -32,10 +32,8 @@ def detect_category(description):
 
     if "keyboard" in text or "screen" in text or "power" in text:
         return "Hardware"
-
     if "software" in text or "app" in text or "crash" in text:
         return "Software"
-
     if "internet" in text or "wifi" in text or "network" in text:
         return "Network"
 
@@ -48,20 +46,31 @@ def get_ai_suggestion(description):
 
     if "not turning on" in text or "power" in text:
         return "Check power cable, switch socket, or try another outlet."
-
     if "keyboard" in text:
         return "Reconnect keyboard or try another USB port."
-
     if "crash" in text or "not opening" in text:
         return "Restart the application or reinstall it."
-
     if "slow" in text:
         return "Restart your computer and close unused programs."
-
     if "internet" in text or "wifi" in text:
         return "Check your router or reconnect to WiFi."
 
     return "We've logged your issue. Try the suggestion above while a technician is assigned."
+
+
+# ================= CHATBOT =================
+@app.route("/chatbot", methods=["POST"])
+def chatbot():
+
+    if "user" not in session:
+        return jsonify({"reply": "Please login first."})
+
+    data = request.get_json(silent=True) or {}
+    user_message = data.get("message", "")
+
+    reply = get_ai_suggestion(user_message)
+
+    return jsonify({"reply": reply})
 
 
 # ================= AUDIT LOG =================
@@ -93,7 +102,7 @@ def signup():
 
     if request.method == "POST":
         username = request.form["username"]
-        password = generate_password_hash(request.form["password"])  # ✅ FIXED
+        password = generate_password_hash(request.form["password"])
         role = request.form["role"]
 
         try:
@@ -109,24 +118,6 @@ def signup():
             flash("User already exists")
 
     return render_template("signup.html")
-
-
-# ================= MANAGE USERS =================
-@app.route("/manage_users")
-def manage_users():
-
-    if "user" not in session or session["role"] != "Admin":
-        return redirect(url_for("dashboard"))
-
-    db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-    cur.execute("SELECT id, username, role FROM users ORDER BY username")
-    users = cur.fetchall()
-
-    cur.close()
-
-    return render_template("manage_users.html", users=users)
 
 
 # ================= LOGIN =================
@@ -268,10 +259,8 @@ def view_issues():
 
     if filter_type == "today":
         conditions.append("DATE(date_reported) = CURRENT_DATE")
-
     elif filter_type == "month":
         conditions.append("DATE_TRUNC('month', date_reported) = DATE_TRUNC('month', CURRENT_DATE)")
-
     elif filter_type == "year":
         conditions.append("DATE_TRUNC('year', date_reported) = DATE_TRUNC('year', CURRENT_DATE)")
 
@@ -328,7 +317,6 @@ def view_issues():
 
 # ================= INIT DB =================
 def init_db():
-
     db = get_db()
     cur = db.cursor()
 
