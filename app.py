@@ -314,6 +314,71 @@ def view_issues():
         closed_percent=closed_percent
     )
 
+# ================= ASSIGN ISSUE =================
+@app.route("/assign_issue/<int:issue_id>", methods=["POST"])
+def assign_issue(issue_id):
+
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    technician = request.form.get("technician")
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        UPDATE issues
+        SET assigned_to=%s
+        WHERE id=%s
+    """, (technician, issue_id))
+
+    db.commit()
+    cur.close()
+
+    log_action("Assigned Issue", technician)
+
+    return redirect(url_for("view_issues"))
+
+#==================CLOSE ISSUE ===============
+@app.route("/close_issue/<int:issue_id>", methods=["POST"])
+def close_issue(issue_id):
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        UPDATE issues
+        SET status='Closed', date_closed=%s
+        WHERE id=%s
+    """, (datetime.now(), issue_id))
+
+    db.commit()
+    cur.close()
+
+    log_action("Closed Issue")
+
+    return redirect(url_for("view_issues"))
+
+#================== RE- OPEN  ===============
+
+@app.route("/reopen_issue/<int:issue_id>", methods=["POST"])
+def reopen_issue(issue_id):
+
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        UPDATE issues
+        SET status='Open', date_closed=NULL
+        WHERE id=%s
+    """, (issue_id,))
+
+    db.commit()
+    cur.close()
+
+    log_action("Reopened Issue")
+
+    return redirect(url_for("view_issues"))
 
 # ================= INIT DB =================
 def init_db():
