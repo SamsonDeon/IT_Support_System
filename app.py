@@ -380,6 +380,89 @@ def reopen_issue(issue_id):
 
     return redirect(url_for("view_issues"))
 
+
+# ================= MONTHLY PDF REPORT =================
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+
+# ================= MONTHLY PDF REPORT =================
+
+@app.route("/monthly_report")
+def monthly_report():
+
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    # Get current month issues
+    cur.execute("""
+    SELECT * FROM issues
+    WHERE DATE_TRUNC('month', date_reported) = DATE_TRUNC('month', CURRENT_DATE)
+    ORDER BY date_reported DESC
+    """)
+
+    issues = cur.fetchall()
+
+    total = len(issues)
+    open_count = len([i for i in issues if i["status"] == "Open"])
+    closed_count = len([i for i in issues if i["status"] == "Closed"])
+    resolution_rate = round((closed_count / total) * 100, 2) if total > 0 else 0
+
+    # Create PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer)
+
+    styles = getSampleStyleSheet()
+    elements = []
+
+    # Title
+    elements.append(Paragraph("Bellevue IT Support Monthly Report", styles['Title']))
+    elements.append(Spacer(1, 12))
+
+    # Summary
+    elements.append(Paragraph(f"Total Issues: {total}", styles['Normal']))
+    elements.append(Paragraph(f"Open Issues: {open_count}", styles['Normal']))
+    elements.append(Paragraph(f"Closed Issues: {closed_count}", styles['Normal']))
+    elements.append(Paragraph(f"Resolution Rate: {resolution_rate}%", styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # Table Data
+    data = [["ID", "Title", "Category", "Status", "Assigned To", "Date"]]
+
+    for issue in issues:
+        data.append([
+            issue["id"],
+            issue["title"],
+            issue["category"],
+            issue["status"],
+            issue["assigned_to"] or "Unassigned",
+            str(issue["date_reported"])[:10]
+        ])
+
+    table = Table(data)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.grey),
+        ("TEXTCOLOR",(0,0),(-1,0),colors.white),
+        ("GRID", (0,0), (-1,-1), 1, colors.black),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold")
+    ]))
+
+    elements.append(table)
+
+    doc.build(elements)
+
+    buffer.seek(0)
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="Monthly_Report.pdf",
+        mimetype="application/pdf"
+    )
 # ================= INIT DB =================
 def init_db():
     db = get_db()
