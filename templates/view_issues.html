@@ -19,6 +19,15 @@
 
 <div class="container">
 
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div style="background:#e3f2fd;padding:15px;border-radius:10px;margin-bottom:15px;">
+🤖 <strong>AI Suggestion:</strong><br>
+{{ messages[0] }}
+</div>
+{% endif %}
+{% endwith %}
+
 <h2>All Issues</h2>
 
 <form method="GET">
@@ -53,6 +62,7 @@
     <th>ID</th>
     <th>Title</th>
     <th>Description</th>
+    <th>Category</th>
     <th>Status</th>
     <th>Assigned To</th>
     <th>Date Reported</th>
@@ -63,10 +73,9 @@
 {% for issue in issues %}
 <tr {% if issue.sla_breach %}style="background:#ffdddd;"{% endif %}>
     <td>{{ issue.id }}</td>
-
     <td>{{ issue.title }}</td>
-
     <td>{{ issue.description }}</td>
+    <td>{{ issue.category }}</td>
 
     <td>
         {% if issue.status == "Open" %}
@@ -95,7 +104,6 @@
     </td>
 
     <td>{{ issue.date_reported }}</td>
-
     <td>{{ issue.sla_hours }}</td>
 
     <td>

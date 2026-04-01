@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, g
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
@@ -14,8 +14,6 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 # ================= DATABASE =================
-from flask import g
-
 def get_db():
     if "db" not in g:
         g.db = psycopg2.connect(DATABASE_URL)
@@ -28,31 +26,62 @@ def close_db(exception):
         db.close()
 
 
+# ================= AI CATEGORY =================
+def detect_category(description):
+    text = description.lower()
+
+    if "keyboard" in text or "screen" in text or "power" in text:
+        return "Hardware"
+
+    if "software" in text or "app" in text or "crash" in text:
+        return "Software"
+
+    if "internet" in text or "wifi" in text or "network" in text:
+        return "Network"
+
+    return "General"
+
+
+# ================= AI ASSISTANT =================
+def get_ai_suggestion(description):
+    text = description.lower()
+
+    if "not turning on" in text or "power" in text:
+        return "Check power cable, switch socket, or try another outlet."
+
+    if "keyboard" in text:
+        return "Reconnect keyboard or try another USB port."
+
+    if "crash" in text or "not opening" in text:
+        return "Restart the application or reinstall it."
+
+    if "slow" in text:
+        return "Restart your computer and close unused programs."
+
+    if "internet" in text or "wifi" in text:
+        return "Check your router or reconnect to WiFi."
+
+    return "We've logged your issue. Try the suggestion above while a technician is assigned."
+
+
 # ================= AUDIT LOG =================
-
-@app.route("/audit_logs")
-def audit_logs():
-
-    if "user" not in session or session["role"] != "Admin":
-        return redirect(url_for("dashboard"))
+def log_action(action, target_user=None):
+    if "user" not in session:
+        return
 
     db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur = db.cursor()
 
     cur.execute("""
-        SELECT * FROM audit_logs
-        ORDER BY id DESC
-    """)
+        INSERT INTO audit_logs (action, performed_by, target_user, timestamp)
+        VALUES (%s, %s, %s, %s)
+    """, (action, session["user"], target_user, datetime.now()))
 
-    logs = cur.fetchall()
-
+    db.commit()
     cur.close()
-    db.close()
 
-    return render_template("audit_logs.html", logs=logs)
 
-#==================SIGNUP =================
-
+# ================= SIGNUP =================
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
 
@@ -63,9 +92,8 @@ def signup():
     cur = db.cursor()
 
     if request.method == "POST":
-
         username = request.form["username"]
-        password = request.form["password"]
+        password = generate_password_hash(request.form["password"])  # ✅ FIXED
         role = request.form["role"]
 
         try:
@@ -74,16 +102,14 @@ def signup():
                 (username, password, role)
             )
             db.commit()
-
             flash("User created successfully")
 
-        except Exception as e:
+        except:
             db.rollback()
             flash("User already exists")
 
-    db.close()
-
     return render_template("signup.html")
+
 
 # ================= MANAGE USERS =================
 @app.route("/manage_users")
@@ -99,15 +125,15 @@ def manage_users():
     users = cur.fetchall()
 
     cur.close()
-    db.close()
 
     return render_template("manage_users.html", users=users)
+
+
 # ================= LOGIN =================
 @app.route("/", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
-
         username = request.form.get("username")
         password = request.form.get("password")
 
@@ -118,26 +144,15 @@ def login():
         user = cur.fetchone()
 
         cur.close()
-        db.close()
 
         if user and check_password_hash(user["password"], password):
-
             session["user"] = user["username"]
             session["role"] = user["role"]
-
             return redirect(url_for("dashboard"))
-
         else:
             flash("Invalid username or password")
 
     return render_template("login.html")
-
-
-# ================= LOGOUT =================
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
 
 
 # ================= DASHBOARD =================
@@ -150,41 +165,30 @@ def dashboard():
     db = get_db()
     cur = db.cursor()
 
- # TOTAL, OPEN, CLOSED (ONE QUERY)
     cur.execute("""
     SELECT 
         COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE status='Open') AS open,
-        COUNT(*) FILTER (WHERE status='Closed') AS closed
+        COUNT(*) FILTER (WHERE status='Open'),
+        COUNT(*) FILTER (WHERE status='Closed')
     FROM issues
     """)
 
-    result = cur.fetchone()
-    total = result[0]
-    pending = result[1]
-    solved = result[2]
+    total, pending, solved = cur.fetchone()
 
-    # MONTHLY DATA (ONE QUERY)
     cur.execute("""
-    SELECT EXTRACT(MONTH FROM date_reported) AS month, COUNT(*) 
-        FROM issues
-    GROUP BY month
+    SELECT EXTRACT(MONTH FROM date_reported), COUNT(*) 
+    FROM issues GROUP BY 1
     """)
 
     monthly_raw = cur.fetchall()
-
-    # fill missing months
     monthly_data = [0] * 12
-    for row in monthly_raw:
-        month_index = int(row[0]) - 1
-        monthly_data[month_index] = row[1]
+
+    for m, count in monthly_raw:
+        monthly_data[int(m)-1] = count
 
     cur.close()
-    db.close()
 
-    percentage = 0
-    if total > 0:
-        percentage = round((solved / total) * 100, 2)
+    percentage = round((solved / total) * 100, 2) if total > 0 else 0
 
     return render_template(
         "dashboard.html",
@@ -209,7 +213,8 @@ def log_issue():
         description = request.form.get("description")
         source = request.form.get("source")
 
-        date_reported = datetime.now()
+        category = detect_category(description)
+        ai_reply = get_ai_suggestion(description)
 
         db = get_db()
         cur = db.cursor()
@@ -217,14 +222,14 @@ def log_issue():
         cur.execute("""
         INSERT INTO issues (title, description, source, category, status, date_reported)
         VALUES (%s,%s,%s,%s,'Open',%s)
-        """, (title, description, source, "General", date_reported))
+        """, (title, description, source, category, datetime.now()))
 
         db.commit()
         cur.close()
-        db.close()
 
         log_action("Logged Issue")
 
+        flash(ai_reply)
         return redirect(url_for("view_issues"))
 
     return render_template("log_issue.html")
@@ -239,8 +244,8 @@ def view_issues():
 
     search = request.args.get("search")
     filter_type = request.args.get("filter", "all")
-    status_filter = request.args.get("status")   # existing
-    category_filter = request.args.get("category")  # ✅ NEW
+    status_filter = request.args.get("status")
+    category_filter = request.args.get("category")
 
     db = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -253,17 +258,13 @@ def view_issues():
         conditions.append("title ILIKE %s")
         params.append(f"%{search}%")
 
-    # ================= STATUS FILTER =================
     if status_filter:
         conditions.append("status = %s")
         params.append(status_filter)
-    # ================================================
 
-    # ================= CATEGORY FILTER (NEW) =================
     if category_filter:
         conditions.append("category = %s")
         params.append(category_filter)
-    # ========================================================
 
     if filter_type == "today":
         conditions.append("DATE(date_reported) = CURRENT_DATE")
@@ -285,25 +286,18 @@ def view_issues():
     issues_with_sla = []
 
     for issue in issues:
-
         issue = dict(issue)
 
         try:
-
-            reported_time = issue["date_reported"]
+            reported = issue["date_reported"]
 
             if issue.get("status") == "Closed" and issue.get("date_closed"):
-                closed_time = issue["date_closed"]
-                sla = closed_time - reported_time
+                sla = issue["date_closed"] - reported
             else:
-                sla = datetime.now() - reported_time
+                sla = datetime.now() - reported
 
             issue["sla_hours"] = round(sla.total_seconds() / 3600, 2)
-
-            if issue["status"] == "Open" and issue["sla_hours"] > 24:
-                issue["sla_breach"] = True
-            else:
-                issue["sla_breach"] = False
+            issue["sla_breach"] = issue["status"] == "Open" and issue["sla_hours"] > 24
 
         except:
             issue["sla_hours"] = 0
@@ -322,7 +316,6 @@ def view_issues():
     closed_percent = round((closed_count/total)*100,2) if total>0 else 0
 
     cur.close()
-    db.close()
 
     return render_template(
         "view_issues.html",
@@ -332,120 +325,8 @@ def view_issues():
         closed_percent=closed_percent
     )
 
-# ================= ASSIGN ISSUE =================
-@app.route("/assign_issue/<int:issue_id>", methods=["POST"])
-def assign_issue(issue_id):
 
-    if "user" not in session:
-        return redirect(url_for("login"))
-
-    technician = request.form.get("technician")
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("""
-    UPDATE issues
-    SET assigned_to=%s
-    WHERE id=%s
-    """,(technician, issue_id))
-
-    db.commit()
-    cur.close()
-    db.close()
-
-    log_action("Assigned Issue", technician)
-
-    return redirect(url_for("view_issues"))
-
-
-# ================= CLOSE ISSUE =================
-@app.route("/close_issue/<int:issue_id>", methods=["POST"])
-def close_issue(issue_id):
-
-    db = get_db()
-    cur = db.cursor()
-
-    date_closed = datetime.now()
-
-    cur.execute("""
-    UPDATE issues
-    SET status='Closed', date_closed=%s
-    WHERE id=%s
-    """,(date_closed, issue_id))
-
-    db.commit()
-    cur.close()
-    db.close()
-
-    log_action("Closed Issue")
-
-    return redirect(url_for("view_issues"))
-
-
-# ================= REOPEN ISSUE =================
-@app.route("/reopen_issue/<int:issue_id>", methods=["POST"])
-def reopen_issue(issue_id):
-
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("""
-    UPDATE issues
-    SET status='Open', date_closed=NULL
-    WHERE id=%s
-    """,(issue_id,))
-
-    db.commit()
-    cur.close()
-    db.close()
-
-    log_action("Reopened Issue")
-
-    return redirect(url_for("view_issues"))
-
-
-# ================= EXPORT =================
-@app.route("/export_excel")
-def export_excel():
-
-    db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-    cur.execute("SELECT * FROM issues")
-    issues = cur.fetchall()
-
-    cur.close()
-    db.close()
-
-    wb = Workbook()
-    ws = wb.active
-
-    ws.append(["ID","Title","Category","Status","Assigned To","Date Reported"])
-
-    for issue in issues:
-        ws.append([
-            issue["id"],
-            issue["title"],
-            issue["category"],
-            issue["status"],
-            issue["assigned_to"],
-            str(issue["date_reported"])
-        ])
-
-    stream = io.BytesIO()
-    wb.save(stream)
-    stream.seek(0)
-
-    return send_file(
-        stream,
-        as_attachment=True,
-        download_name="IT_Issues_Report.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-
-# ================= AUTO CREATE TABLES =================
+# ================= INIT DB =================
 def init_db():
 
     db = get_db()
@@ -484,29 +365,17 @@ def init_db():
     )
     """)
 
-    # ================= DEFAULT ADMIN =================
     cur.execute("SELECT * FROM users WHERE username='admin'")
-    admin = cur.fetchone()
-
-    if not admin:
-
+    if not cur.fetchone():
         cur.execute("""
         INSERT INTO users (username,password,role)
         VALUES (%s,%s,%s)
-        """, (
-            "admin",
-            generate_password_hash("admin123"),
-            "Admin"
-        ))
-
-        print("Default admin created: admin / admin123")
+        """, ("admin", generate_password_hash("admin123"), "Admin"))
 
     db.commit()
     cur.close()
-    db.close()
 
 
-# initialize database when app starts
 with app.app_context():
     init_db()
 
