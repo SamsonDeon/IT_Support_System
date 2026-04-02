@@ -376,6 +376,91 @@ function toggleMenu(){
 }
 
 </script>
+<!-- ================= CHATBOT ================= -->
+
+<div id="chatbot" style="
+position: fixed;
+bottom: 20px;
+right: 20px;
+width: 300px;
+font-family: Arial;
+z-index: 999;
+">
+
+    <!-- Header -->
+    <div onclick="toggleChat()" style="
+        background:#007bff;
+        color:white;
+        padding:10px;
+        border-radius:10px 10px 0 0;
+        cursor:pointer;
+    ">
+        🤖 IT Support Assistant
+    </div>
+
+    <!-- Body -->
+    <div id="chatBody" style="
+        display:none;
+        background:white;
+        border:1px solid #ccc;
+        height:350px;
+        display:flex;
+        flex-direction:column;
+    ">
+
+        <div id="messages" style="
+            flex:1;
+            padding:10px;
+            overflow-y:auto;
+            font-size:14px;
+        "></div>
+
+        <div style="display:flex;">
+            <input id="chatInput" placeholder="Ask something..."
+                   style="flex:1;padding:8px;border:none;border-top:1px solid #ccc;">
+            <button onclick="sendMessage()" style="padding:8px;">Send</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+/* ================= CHAT TOGGLE ================= */
+function toggleChat(){
+    const chat = document.getElementById("chatBody");
+    chat.style.display = chat.style.display === "none" ? "flex" : "none";
+}
+
+/* ================= SEND MESSAGE ================= */
+function sendMessage(){
+
+    const input = document.getElementById("chatInput");
+    const message = input.value;
+
+    if(!message) return;
+
+    const messages = document.getElementById("messages");
+
+    messages.innerHTML += `<div><b>You:</b> ${message}</div>`;
+
+    fetch("/chatbot", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({message: message})
+    })
+    .then(res => res.json())
+    .then(data => {
+        messages.innerHTML += `<div><b>Bot:</b> ${data.reply}</div>`;
+        messages.scrollTop = messages.scrollHeight;
+    });
+
+    input.value = "";
+}
+
+</script>
 
 </body>
 </html>
