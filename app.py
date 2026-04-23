@@ -380,6 +380,28 @@ def reopen_issue(issue_id):
 
     return redirect(url_for("view_issues"))
 
+#============AUDIT LOGS ===============
+
+@app.route("/audit_logs")
+def audit_logs():
+
+    if "user" not in session or session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute("""
+        SELECT action, performed_by, target_user, timestamp
+        FROM audit_logs
+        ORDER BY timestamp DESC
+    """)
+
+    logs = cur.fetchall()
+    cur.close()
+
+    return render_template("audit_logs.html", logs=logs)
+
 #========== MANAGE USERS ============
 
 @app.route("/manage_users")

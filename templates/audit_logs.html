@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Audit Logs</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Audit Logs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <div class="navbar">
-<strong>IT Enterprise Support</strong>
+    <strong>Bellevue IT Support</strong>
 
-<div class="nav-right">
-<a href="/dashboard">Dashboard</a>
-<a href="/view_issues">Issues</a>
-<a href="/logout">Logout</a>
-</div>
+    <div class="nav-right">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/manage_users">Manage Users</a>
+        <a href="/logout">Logout</a>
+    </div>
 </div>
 
 <div class="container">
@@ -23,20 +23,22 @@
 <table class="table">
 
 <tr>
-<th>ID</th>
-<th>Action</th>
-<th>Performed By</th>
-<th>Target User</th>
-<th>Timestamp</th>
+    <th>Action</th>
+    <th>Performed By</th>
+    <th>Target</th>
+    <th>Date</th>
 </tr>
 
 {% for log in logs %}
 <tr>
-<td>{{ log.id }}</td>
-<td>{{ log.action }}</td>
-<td>{{ log.performed_by }}</td>
-<td>{{ log.target_user }}</td>
-<td>{{ log.timestamp }}</td>
+    <td>{{ log.action }}</td>
+    <td>{{ log.performed_by }}</td>
+    <td>{{ log.target_user or "-" }}</td>
+    <td>{{ log.timestamp }}</td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="4" style="text-align:center;">No logs available</td>
 </tr>
 {% endfor %}
 
