@@ -380,6 +380,23 @@ def reopen_issue(issue_id):
 
     return redirect(url_for("view_issues"))
 
+#========== MANAGE USERS ============
+
+@app.route("/manage_users")
+def manage_users():
+
+    if "user" not in session or session.get("role") != "Admin":
+        return redirect(url_for("dashboard"))
+
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute("SELECT id, username, role FROM users ORDER BY username")
+    users = cur.fetchall()
+
+    cur.close()
+
+    return render_template("manage_users.html", users=users)
 
 # ================= MONTHLY PDF REPORT =================
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle

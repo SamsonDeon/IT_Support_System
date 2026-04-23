@@ -1,38 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Manage Users</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <div class="navbar">
-<strong>Bellevue IT Support</strong>
+    <strong>Bellevue IT Support</strong>
 
-<div class="nav-right">
-<a href="/dashboard">Dashboard</a>
-<a href="/signup">Create User</a>
-<a href="/logout">Logout</a>
-</div>
+    <div class="nav-right">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/signup">Create User</a>
+        <a href="/logout">Logout</a>
+    </div>
 </div>
 
 <div class="container">
 
 <h2>Manage Users</h2>
 
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+<div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:15px;">
+    {{ messages[0] }}
+</div>
+{% endif %}
+{% endwith %}
+
 <table class="table">
 
 <tr>
-<th>ID</th>
-<th>Username</th>
-<th>Role</th>
+    <th>ID</th>
+    <th>Username</th>
+    <th>Role</th>
 </tr>
 
 {% for user in users %}
 <tr>
-<td>{{ user.id }}</td>
-<td>{{ user.username }}</td>
-<td>{{ user.role }}</td>
+    <td>{{ user.id }}</td>
+    <td>{{ user.username }}</td>
+    <td>{{ user.role }}</td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="3" style="text-align:center;">No users found</td>
 </tr>
 {% endfor %}
 
